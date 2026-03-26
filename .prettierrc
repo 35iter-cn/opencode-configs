@@ -1,0 +1,18 @@
+{
+  "overrides": [
+    {
+      "files": "*.jsonc",
+      "options": {
+        "parser": "jsonc",
+        "trailingComma": "none"
+      }
+    },
+    {
+      "files": "bun.lock",
+      "options": {
+        "parser": "json",
+        "trailingComma": "none"
+      }
+    }
+  ]
+}

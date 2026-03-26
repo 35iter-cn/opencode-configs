@@ -1,0 +1,11 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": "allow",
+  "plugin": [
+    "oh-my-opencode@3.12.3",
+    "opencode-antigravity-auth@1.6.0",
+    "./plugins/omo-env-remover.js",
+    "./plugins/windows-notify.js"
+  ],
+  "mcp": {}
+}
