@@ -550,3 +550,155 @@ test('does not duplicate task error notifications after idle events', async () =
 
   assert.equal(shellCalls.length, 1);
 });
+
+test('notifies when question tool waits for user input', async () => {
+  const shellCalls = [];
+  const rootSession = {
+    id: 'root-session-12345678',
+    title: 'Question Session',
+    slug: 'question-session',
+    parentID: null,
+  };
+
+  const plugin = await WindowsNotifyPlugin({
+    $: async (strings, ...values) => {
+      shellCalls.push({ strings: [...strings], values });
+    },
+    client: {
+      session: {
+        get: async () => ({ error: null, data: rootSession }),
+        messages: async () => ({ error: null, data: [] }),
+      },
+      app: {
+        log: async () => {},
+      },
+    },
+  });
+
+  await plugin['tool.execute.before'](
+    {
+      tool: 'question',
+      sessionID: rootSession.id,
+      callID: 'call-question-1',
+    },
+    {
+      args: {
+        questions: [
+          {
+            question: '你要继续执行数据库迁移吗？',
+          },
+        ],
+      },
+    },
+  );
+
+  assert.equal(shellCalls.length, 1);
+  const script = decodePowerShellScript(shellCalls[0]);
+  assert.match(script, /OpenCode · Question Session/);
+  assert.match(script, /Agent 正在等你回答：你要继续执行数据库迁移吗？/);
+});
+
+test('deduplicates repeated question notifications for the same call', async () => {
+  const shellCalls = [];
+  const rootSession = {
+    id: 'root-session-12345678',
+    title: 'Question Session',
+    slug: 'question-session',
+    parentID: null,
+  };
+
+  const plugin = await WindowsNotifyPlugin({
+    $: async (strings, ...values) => {
+      shellCalls.push({ strings: [...strings], values });
+    },
+    client: {
+      session: {
+        get: async () => ({ error: null, data: rootSession }),
+        messages: async () => ({ error: null, data: [] }),
+      },
+      app: {
+        log: async () => {},
+      },
+    },
+  });
+
+  await plugin['tool.execute.before'](
+    {
+      tool: 'question',
+      sessionID: rootSession.id,
+      callID: 'call-question-1',
+    },
+    {
+      args: {
+        questions: [{ question: '你要继续执行数据库迁移吗？' }],
+      },
+    },
+  );
+
+  await plugin['tool.execute.before'](
+    {
+      tool: 'question',
+      sessionID: rootSession.id,
+      callID: 'call-question-1',
+    },
+    {
+      args: {
+        questions: [{ question: '你要继续执行数据库迁移吗？' }],
+      },
+    },
+  );
+
+  assert.equal(shellCalls.length, 1);
+});
+
+test('notifies when permission is requested and avoids duplicate replies', async () => {
+  const shellCalls = [];
+  const rootSession = {
+    id: 'root-session-12345678',
+    title: 'Permission Session',
+    slug: 'permission-session',
+    parentID: null,
+  };
+
+  const plugin = await WindowsNotifyPlugin({
+    $: async (strings, ...values) => {
+      shellCalls.push({ strings: [...strings], values });
+    },
+    client: {
+      session: {
+        get: async () => ({ error: null, data: rootSession }),
+        messages: async () => ({ error: null, data: [] }),
+      },
+      app: {
+        log: async () => {},
+      },
+    },
+  });
+
+  await plugin.event({
+    event: {
+      type: 'permission.updated',
+      properties: {
+        id: 'perm-1',
+        sessionID: rootSession.id,
+        title: '需要执行 Bash 命令',
+      },
+    },
+  });
+
+  await plugin.event({
+    event: {
+      type: 'permission.updated',
+      properties: {
+        id: 'perm-1',
+        sessionID: rootSession.id,
+        title: '需要执行 Bash 命令',
+      },
+    },
+  });
+
+  assert.equal(shellCalls.length, 1);
+  const script = decodePowerShellScript(shellCalls[0]);
+  assert.match(script, /OpenCode · Permission Session/);
+  assert.match(script, /Agent 需要你的确认：需要执行 Bash 命令/);
+});

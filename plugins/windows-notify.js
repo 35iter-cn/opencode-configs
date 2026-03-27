@@ -109,6 +109,9 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
   const notifyingRoots = new Set();
   const rootErrors = new Map();
   const notifiedTaskErrors = new Set();
+  const questionNotifications = new Map();
+  const permissionNotifications = new Map();
+  const QUESTION_TOOLS = new Set(['question', 'ask_user_question', 'askuserquestion']);
 
   const getShortSessionID = (sessionID) => sessionID.slice(0, 8);
 
@@ -116,6 +119,13 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
     status === 'busy' || (typeof status === 'object' && status?.type === 'busy');
 
   const escapePowerShell = (value) => value.replace(/'/g, "''");
+
+  const getQuestionText = (args) => {
+    const questions = args?.questions;
+    if (!Array.isArray(questions) || questions.length === 0) return '';
+    const questionText = questions[0]?.question;
+    return typeof questionText === 'string' ? truncateText(questionText) : '';
+  };
 
   const listSessionMessages = async (sessionID) => {
     if (!client.session?.messages) return [];
@@ -226,6 +236,20 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
     await $`pwsh.exe -NoProfile -EncodedCommand ${encoded}`;
   };
 
+  const sendTextNotification = async (session, body) => {
+    const label = session.title || session.slug || getShortSessionID(session.id);
+    const script = [
+      'Import-Module BurntToast',
+      `$title = '${escapePowerShell(`OpenCode · ${label}`)}'`,
+      `$body = '${escapePowerShell(body)}'`,
+      `$appLogo = '${escapePowerShell(REMOTE_APP_LOGO_URL)}'`,
+      'New-BurntToastNotification -Text $title, $body -AppLogo $appLogo',
+    ].join('\n');
+
+    const encoded = Buffer.from(script, 'utf16le').toString('base64');
+    await $`pwsh.exe -NoProfile -EncodedCommand ${encoded}`;
+  };
+
   const logWarn = async (message, extra) => {
     await client.app.log({
       body: {
@@ -281,7 +305,69 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
     }
   };
 
+  const notifyQuestion = async (sessionID, callID, questionText) => {
+    if (!callID || questionNotifications.has(callID)) return;
+
+    try {
+      const session = await getSessionInfo(sessionID);
+      questionNotifications.set(callID, sessionID);
+      await sendTextNotification(
+        session,
+        questionText ? `Agent 正在等你回答：${questionText}` : 'Agent 正在等你回答',
+      );
+    } catch (error) {
+      await logWarn('Failed to send question notification', {
+        sessionID,
+        callID,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  const notifyPermission = async (sessionID, permissionID, title) => {
+    if (!permissionID || permissionNotifications.has(permissionID)) return;
+
+    try {
+      const session = await getSessionInfo(sessionID);
+      permissionNotifications.set(permissionID, sessionID);
+      await sendTextNotification(
+        session,
+        title ? `Agent 需要你的确认：${truncateText(title)}` : 'Agent 需要你的确认',
+      );
+    } catch (error) {
+      await logWarn('Failed to send permission notification', {
+        sessionID,
+        permissionID,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  const clearSessionNotificationState = (sessionID) => {
+    notifiedTaskErrors.delete(sessionID);
+
+    for (const [callID, trackedSessionID] of questionNotifications.entries()) {
+      if (trackedSessionID === sessionID) {
+        questionNotifications.delete(callID);
+      }
+    }
+
+    for (const [permissionID, trackedSessionID] of permissionNotifications.entries()) {
+      if (trackedSessionID === sessionID) {
+        permissionNotifications.delete(permissionID);
+      }
+    }
+  };
+
   return {
+    'tool.execute.before': async (input, output) => {
+      if (!QUESTION_TOOLS.has(input.tool)) return;
+      await notifyQuestion(input.sessionID, input.callID, getQuestionText(output?.args));
+    },
+    'tool.execute.after': async (input) => {
+      if (!QUESTION_TOOLS.has(input.tool)) return;
+      questionNotifications.delete(input.callID);
+    },
     event: async ({ event }) => {
       if (event.type === 'session.created' || event.type === 'session.updated') {
         const info = event.properties?.info;
@@ -294,7 +380,23 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
       if (event.type === 'session.deleted') {
         const sessionID = event.properties?.info?.id;
         if (sessionID) {
-          notifiedTaskErrors.delete(sessionID);
+          clearSessionNotificationState(sessionID);
+        }
+        return;
+      }
+
+      if (event.type === 'permission.updated' || event.type === 'permission.asked') {
+        const permissionID = event.properties?.id;
+        const sessionID = event.properties?.sessionID;
+        if (!permissionID || !sessionID) return;
+        await notifyPermission(sessionID, permissionID, event.properties?.title);
+        return;
+      }
+
+      if (event.type === 'permission.replied') {
+        const permissionID = event.properties?.permissionID;
+        if (permissionID) {
+          permissionNotifications.delete(permissionID);
         }
         return;
       }
