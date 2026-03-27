@@ -28,7 +28,7 @@
 .
 ├── AGENTS.md                  # 本仓库的代理工作说明
 ├── README.md                  # 本说明文档
-├── opencode.json              # OpenCode 核心配置
+├── opencode.json              # OpenCode 核心配置（OpenCode 也支持 opencode.jsonc）
 ├── oh-my-opencode.jsonc       # OMO 插件层配置
 ├── tui.json                   # TUI 配置
 ├── package.json               # 本地依赖（目前非常少）
@@ -50,6 +50,8 @@
 
 - Schema: `https://opencode.ai/config.json`
 
+OpenCode 核心配置除了 `opencode.json` 之外，也支持使用 `opencode.jsonc`。当前仓库保留的是 `opencode.json`。
+
 当前仓库里它主要负责：
 
 - 设置全局权限策略
@@ -58,7 +60,7 @@
 
 当前启用的插件包括：
 
-- `oh-my-opencode@3.12.3`
+- `oh-my-opencode@3.14.0`
 - `opencode-antigravity-auth@1.6.0`
 - `./plugins/omo-env-remover.js`
 - `./plugins/windows-notify.js`
@@ -92,6 +94,12 @@
 
 该文件使用 JSONC 形式，适合带注释的配置维护。
 
+当前 `experimental` 中已启用：
+
+- `aggressive_truncation`
+- `task_system`
+- `disable_omo_env`
+
 ### `tui.json`
 
 这是 OpenCode TUI 的配置文件。当前内容很少，主要用于声明对应 schema：
@@ -111,6 +119,8 @@
 ### `plugins/omo-env-remover.js`
 
 这个插件会在系统提示组装时移除 `<omo-env> ... </omo-env>` 块，避免把不希望暴露给下游模型的环境信息继续传递下去。
+
+目前 OMO 已同时启用官方实验特性 `experimental.disable_omo_env: true`。这意味着 OMO 会在更早阶段尽量不注入 `<omo-env>`；而 `plugins/omo-env-remover.js` 仍然保留，作为最终 `SystemPromptAssemble` 阶段的兜底清理层。也就是说，两者现在是“官方开关优先 + 本地插件兜底”的关系，而不是二选一替换。
 
 ### `plugins/windows-notify.js`
 
@@ -185,6 +195,8 @@ node --check plugins/windows-notify.js
 ```bash
 npx prettier --write README.md AGENTS.md opencode.json oh-my-opencode.jsonc plugins/*.js
 ```
+
+如果未来把 OpenCode 核心配置切换为 `opencode.jsonc`，这里也应同步替换对应文件名。
 
 ## 关于测试
 

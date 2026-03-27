@@ -107,6 +107,7 @@
   },
   "experimental": {
     "aggressive_truncation": true,
+    "disable_omo_env": true,
     "task_system": true
   },
   "tmux": {
