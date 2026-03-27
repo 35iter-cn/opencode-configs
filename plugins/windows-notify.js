@@ -56,10 +56,59 @@ export const extractLastResultFromMessages = (messages) => {
   return '';
 };
 
+const extractErrorMessage = (error) => {
+  if (!error) return '';
+  if (typeof error === 'string') return truncateText(error);
+
+  const dataMessage = error?.data?.message;
+  if (typeof dataMessage === 'string' && dataMessage.trim()) {
+    return truncateText(dataMessage);
+  }
+
+  const directMessage = error?.message;
+  if (typeof directMessage === 'string' && directMessage.trim()) {
+    return truncateText(directMessage);
+  }
+
+  const errorName = error?.name;
+  if (typeof errorName === 'string' && errorName.trim()) {
+    return truncateText(errorName);
+  }
+
+  return truncateText(String(error));
+};
+
+export const extractLastErrorFromMessages = (messages) => {
+  if (!Array.isArray(messages)) return '';
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message?.info?.role !== 'assistant') continue;
+
+    const assistantError = extractErrorMessage(message?.info?.error);
+    if (assistantError) return assistantError;
+
+    const parts = Array.isArray(message.parts) ? message.parts : [];
+    for (let partIndex = parts.length - 1; partIndex >= 0; partIndex -= 1) {
+      const part = parts[partIndex];
+
+      if (part?.type === 'tool' && part.state?.status === 'error') {
+        const toolError = extractErrorMessage(part.state?.error);
+        if (toolError) return toolError;
+        if (part.state?.title) return truncateText(`工具失败：${part.state.title}`);
+      }
+    }
+  }
+
+  return '';
+};
+
 export const WindowsNotifyPlugin = async ({ $, client }) => {
   const sessionCache = new Map();
   const rootActivity = new Map();
   const notifyingRoots = new Set();
+  const rootErrors = new Map();
+  const notifiedTaskErrors = new Set();
 
   const getShortSessionID = (sessionID) => sessionID.slice(0, 8);
 
@@ -134,11 +183,20 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
     return current;
   };
 
-  const getNotificationText = async (session) => {
+  const getNotificationText = async (session, errorMessage = '') => {
     const label = session.title || session.slug || getShortSessionID(session.id);
     const changeSummary = formatChangeSummary(session);
     const messages = await listSessionMessages(session.id);
+    const messageError = extractLastErrorFromMessages(messages);
     const lastResult = extractLastResultFromMessages(messages);
+    const resolvedError = errorMessage || messageError;
+
+    if (resolvedError) {
+      return {
+        title: `OpenCode · ${label}`,
+        body: `出错啦：${resolvedError}`,
+      };
+    }
 
     const bodyParts = [
       changeSummary || `主会话已完成 · session ${getShortSessionID(session.id)}`,
@@ -154,8 +212,8 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
     };
   };
 
-  const sendNotification = async (session) => {
-    const { title, body } = await getNotificationText(session);
+  const sendNotification = async (session, errorMessage = '') => {
+    const { title, body } = await getNotificationText(session, errorMessage);
     const script = [
       'Import-Module BurntToast',
       `$title = '${escapePowerShell(title)}'`,
@@ -179,6 +237,50 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
     });
   };
 
+  const notifyRootSession = async (sessionID) => {
+    let notifiedRootID = null;
+
+    try {
+      const rootSession = await getRootSessionInfo(sessionID);
+      if (rootSession.id !== sessionID) return;
+      if (!rootActivity.get(rootSession.id)) return;
+      if (notifyingRoots.has(rootSession.id)) return;
+
+      notifiedRootID = rootSession.id;
+      notifyingRoots.add(rootSession.id);
+
+      await sendNotification(rootSession, rootErrors.get(rootSession.id) ?? '');
+      rootActivity.set(rootSession.id, false);
+      rootErrors.delete(rootSession.id);
+    } catch (error) {
+      await logWarn('Failed to process Windows notification event', {
+        sessionID,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    } finally {
+      if (notifiedRootID) {
+        notifyingRoots.delete(notifiedRootID);
+      }
+    }
+  };
+
+  const notifyTaskSessionError = async (sessionID, errorMessage = '') => {
+    if (notifiedTaskErrors.has(sessionID)) return;
+
+    try {
+      const session = await getSessionInfo(sessionID);
+      if (!session.parentID) return;
+
+      notifiedTaskErrors.add(sessionID);
+      await sendNotification(session, errorMessage);
+    } catch (error) {
+      await logWarn('Failed to send task error notification', {
+        sessionID,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
   return {
     event: async ({ event }) => {
       if (event.type === 'session.created' || event.type === 'session.updated') {
@@ -189,11 +291,26 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
         return;
       }
 
+      if (event.type === 'session.deleted') {
+        const sessionID = event.properties?.info?.id;
+        if (sessionID) {
+          notifiedTaskErrors.delete(sessionID);
+        }
+        return;
+      }
+
       if (event.type === 'session.status') {
         const sessionID = event.properties?.sessionID;
         const status = event.properties?.status;
 
-        if (!sessionID || !isBusyStatus(status)) return;
+        if (!sessionID) return;
+
+        if (status?.type === 'idle') {
+          await notifyRootSession(sessionID);
+          return;
+        }
+
+        if (!isBusyStatus(status)) return;
 
         try {
           const rootSession = await getRootSessionInfo(sessionID);
@@ -209,34 +326,38 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
         return;
       }
 
+      if (event.type === 'session.error') {
+        const sessionID = event.properties?.sessionID;
+        if (!sessionID) return;
+
+        try {
+          const session = await getSessionInfo(sessionID);
+          const errorMessage = extractErrorMessage(event.properties?.error);
+
+          if (session.parentID) {
+            await notifyTaskSessionError(sessionID, errorMessage);
+            return;
+          }
+
+          const rootSession = await getRootSessionInfo(sessionID);
+          rootActivity.set(rootSession.id, true);
+          rootErrors.set(rootSession.id, errorMessage);
+        } catch (error) {
+          await logWarn('Failed to resolve root session for error event', {
+            sessionID,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+
+        return;
+      }
+
       if (event.type !== 'session.idle') return;
 
       const sessionID = event.properties?.sessionID;
       if (!sessionID) return;
 
-      let notifiedRootID = null;
-
-      try {
-        const rootSession = await getRootSessionInfo(sessionID);
-        if (rootSession.id !== sessionID) return;
-        if (!rootActivity.get(rootSession.id)) return;
-        if (notifyingRoots.has(rootSession.id)) return;
-
-        notifiedRootID = rootSession.id;
-        notifyingRoots.add(rootSession.id);
-
-        await sendNotification(rootSession);
-        rootActivity.set(rootSession.id, false);
-      } catch (error) {
-        await logWarn('Failed to process Windows notification event', {
-          sessionID,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      } finally {
-        if (notifiedRootID) {
-          notifyingRoots.delete(notifiedRootID);
-        }
-      }
+      await notifyRootSession(sessionID);
     },
   };
 };
