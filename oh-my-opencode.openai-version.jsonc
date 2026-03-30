@@ -3,73 +3,73 @@
   "model_fallback": true,
   "agents": {
     "sisyphus": {
-      "model": "kimi-for-coding/k2p5",
-      "fallback_models": ["kimi-for-coding/k2p5"],
+      "model": "openai/gpt-5.4",
+      "fallback_models": ["kimi-for-coding/k2p5", "opencode-go/kimi-k2.5"],
       "variant": "low",
       "ultrawork": {
-        "model": "kimi-for-coding/k2p5",
+        "model": "openai/gpt-5.3-codex",
         "variant": "high"
       }
     },
     "hephaestus": {
-      "model": "kimi-for-coding/k2p5",
-      "fallback_models": ["kimi-for-coding/k2p5"],
+      "model": "openai/gpt-5.3-codex",
+      "fallback_models": ["kimi-for-coding/k2p5", "opencode-go/kimi-k2.5"],
       "variant": "medium"
     },
     "oracle": {
-      "model": "kimi-for-coding/k2p5",
-      "fallback_models": ["kimi-for-coding/k2p5"],
+      "model": "openai/gpt-5.4",
+      "fallback_models": ["kimi-for-coding/k2p5", "opencode-go/kimi-k2.5"],
       "variant": "high"
     },
     "explore": {
-      "model": "kimi-for-coding/k2p5",
-      "fallback_models": ["kimi-for-coding/k2p5"],
+      "model": "openai/gpt-5.4-mini",
+      "fallback_models": ["kimi-for-coding/k2p5", "opencode-go/kimi-k2.5"],
       "variant": "low"
     },
     "librarian": {
-      "model": "kimi-for-coding/k2p5",
-      "fallback_models": ["kimi-for-coding/k2p5"],
+      "model": "openai/gpt-5.4-mini",
+      "fallback_models": ["kimi-for-coding/k2p5", "opencode-go/kimi-k2.5"],
       "variant": "medium"
     },
     "multimodal-looker": {
-      "model": "kimi-for-coding/k2p5",
-      "fallback_models": ["kimi-for-coding/k2p5"],
+      "model": "openai/gpt-5.4-mini",
+      "fallback_models": ["kimi-for-coding/k2p5", "opencode-go/kimi-k2.5"],
       "variant": "medium"
     },
     "prometheus": {
-      "model": "kimi-for-coding/k2p5",
-      "fallback_models": ["kimi-for-coding/k2p5"],
+      "model": "openai/gpt-5.3-codex",
+      "fallback_models": ["kimi-for-coding/k2p5", "opencode-go/kimi-k2.5"],
       "variant": "high",
       "prompt_append": "优先并行执行，充分利用 Hephaestus 的自主能力。"
     },
     "metis": {
-      "model": "kimi-for-coding/k2p5",
-      "fallback_models": ["kimi-for-coding/k2p5"],
+      "model": "openai/gpt-5.4",
+      "fallback_models": ["kimi-for-coding/k2p5", "opencode-go/kimi-k2.5"],
       "variant": "high"
     },
     "momus": {
-      "model": "kimi-for-coding/k2p5",
-      "fallback_models": ["kimi-for-coding/k2p5"],
+      "model": "openai/gpt-5.4",
+      "fallback_models": ["kimi-for-coding/k2p5", "opencode-go/kimi-k2.5"],
       "variant": "xhigh"
     },
     "atlas": {
-      "model": "kimi-for-coding/k2p5",
-      "fallback_models": ["kimi-for-coding/k2p5"],
+      "model": "openai/gpt-5.4-mini",
+      "fallback_models": ["kimi-for-coding/k2p5", "opencode-go/kimi-k2.5"],
       "variant": "medium"
     },
     "sisyphus-junior": {
-      "model": "kimi-for-coding/k2p5",
-      "fallback_models": ["kimi-for-coding/k2p5"],
+      "model": "openai/gpt-5.4-mini",
+      "fallback_models": ["kimi-for-coding/k2p5", "opencode-go/kimi-k2.5"],
       "variant": "medium"
     }
   },
   "categories": {
     "visual-engineering": {
-      "model": "kimi-for-coding/k2p5",
+      "model": "openai/gpt-5.3-codex",
       "variant": "medium"
     },
     "ultrabrain": {
-      "model": "kimi-for-coding/k2p5",
+      "model": "openai/gpt-5.4",
       "variant": "xhigh"
     },
     "deep": {
@@ -94,10 +94,14 @@
   },
   "background_task": {
     "providerConcurrency": {
+      "openai": 2,
       "opencode-go": 4,
       "kimi-for-coding": 2
     },
     "modelConcurrency": {
+      "openai/gpt-5.4": 2,
+      "openai/gpt-5.3-codex": 2,
+      "openai/gpt-5.4-mini": 2,
       "opencode-go/kimi-k2.5": 3,
       "opencode-go/minimax-m2.5": 4,
       "kimi-for-coding/k2p5": 2
