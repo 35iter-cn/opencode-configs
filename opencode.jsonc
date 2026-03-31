@@ -5,7 +5,8 @@
 //  "oh-my-opencode@latest",
     "opencode-mem@latest",
     "./plugins/omo-env-remover.js",
-    "./plugins/windows-notify.js"
+    "./plugins/windows-notify.js",
+    "superpowers@git+https://github.com/obra/superpowers.git"
   ],
   "mcp": {}
 }
