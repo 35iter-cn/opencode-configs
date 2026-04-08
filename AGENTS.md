@@ -1,3 +1,1 @@
-## 语言偏好
-
-所有回复必须使用中文。
+/root/.agents/AGENTS.md
