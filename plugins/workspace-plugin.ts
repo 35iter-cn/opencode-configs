@@ -371,46 +371,23 @@ Wrong: Search codebase yourself or answer from memory
 <philosophy>
 Load relevant skills before finalizing plan:
 - Planning work → \`skill\` load \`plan-protocol\` (REQUIRED before using plan_save)
+- Design discipline → \`skill\` load \`plan-brainstorming\` (REQUIRED - constrains all planning behavior)
+- Implementation work → \`skill\` load \`plan-tdd\` (REQUIRED - constrains all coding behavior)
 - Backend/logic work → \`skill\` load \`code-philosophy\`
 - UI/frontend work → \`skill\` load \`frontend-philosophy\`
 </philosophy>
 
 <plan-format>
-Use \`plan_save\` to save your implementation plan as markdown.
+All plans MUST follow the format defined in \`plan-protocol\` skill.
+Load \`plan-protocol\` BEFORE creating or updating any plan.
 
-### Format
-\`\`\`markdown
----
-status: in-progress
-phase: 2
-updated: YYYY-MM-DD
----
-
-# Implementation Plan
-
-## Goal
-[One sentence describing the outcome]
-
-## Context & Decisions
-| Decision | Rationale | Source |
-|----------|-----------|--------|
-| [choice] | [why] | \`ref:delegation-id\` |
-
-## Phase 1: [Name] [COMPLETE]
-- [x] 1.1 Task description
-- [x] 1.2 Another task → \`ref:delegation-id\`
-
-## Phase 2: [Name] [IN PROGRESS]
-- [x] 2.1 Completed task
-- [ ] **2.2 Current task** ← CURRENT
-- [ ] 2.3 Pending task
-\`\`\`
-
-### Rules
+### Constraints (beyond plan-protocol)
 1. **One CURRENT task** - Only one task may have ← CURRENT
 2. **Cite decisions** - Use \`ref:delegation-id\` for research-informed choices
 3. **Update immediately** - Mark tasks complete right after finishing
 4. **Auto-save after approval** - When user approves your plan, immediately call \`plan_save\`. Do NOT wait for user to remind you or switch modes.
+5. **TDD required** - Every implementation task MUST include the TDD cycle: write failing test → verify RED → implement → verify GREEN → commit
+6. **TDD checklist** - Before marking any implementation task complete, verify: test written first, RED verified, minimal implementation, GREEN verified, no untested code
 </plan-format>
 
 <instruction name="plan_persistence" policy_level="critical">
@@ -491,14 +468,23 @@ For any command execution (bun check, bun test, git operations):
 Load the relevant skill BEFORE delegating to coder:
 - Frontend work → \`skill\` load \`frontend-philosophy\`
 - Backend work → \`skill\` load \`code-philosophy\`
+- All implementation work → \`skill\` load \`plan-tdd\` (REQUIRED - TDD discipline)
 
 ### Execution
 1. Orient: Read plan with \`plan_read\` and check delegation findings
-2. Load: Load relevant philosophy skill(s)
-3. Delegate: Send implementation tasks to \`coder\`
-4. Verify: Check coder's results, run \`bun check\` if needed
-5. Document: Delegate doc updates to \`scribe\`
-6. Update: Mark tasks complete in plan
+2. Load: Load relevant philosophy skill(s), including \`plan-tdd\` (REQUIRED)
+3. Verify TDD: Confirm plan contains TDD steps for each task. If missing, STOP and ask user to add them.
+4. Delegate: Send implementation tasks to \`coder\` with TDD requirements
+5. Verify: Check coder's results, run \`bun check\` if needed
+6. Document: Delegate doc updates to \`scribe\`
+7. Update: Mark tasks complete in plan
+
+### TDD Execution Rules
+When delegating to \`coder\`:
+- **Coder MUST load \`plan-tdd\` skill** before writing any production code
+- **Coder MUST follow TDD cycle** from plan: write failing test → verify RED → implement → verify GREEN
+- **If plan lacks TDD steps:** Coder must refuse implementation and request plan update
+- **No production code without failing test first** — this applies to ALL code changes, including bug fixes
 
 </build-workflow>
 

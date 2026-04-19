@@ -164,9 +164,9 @@ Citations reference delegation research. The flow is:
 
 ## Examples
 
-### ✅ CORRECT: Well-formed plan
+### ✅ CORRECT: Well-formed plan with TDD
 
-```markdown
+````markdown
 ---
 status: in-progress
 phase: 2
@@ -193,19 +193,49 @@ Add JWT authentication with refresh token support
 
 ## Phase 2: Implementation [IN PROGRESS]
 
-- [x] 2.1 Set up project structure
-- [ ] **2.2 Add password hashing** ← CURRENT
-- [ ] 2.3 Implement JWT generation
+### Task 2.1: Add password hashing
+
+- [ ] **Step 1: Write failing test**
+
+  ```typescript
+  test("hashPassword generates valid bcrypt hash", async () => {
+    const hash = await hashPassword("password123");
+    expect(hash).toMatch(/^\$2[aby]\$/);
+  });
+  ```
+
+  Run: `npm test hash.test.ts`
+  Expected: FAIL - hashPassword is not defined
+
+- [ ] **Step 2: Verify RED**
+      Confirm test fails for expected reason (function missing, not typo)
+
+- [ ] **Step 3: Implement minimal code**
+
+  ```typescript
+  async function hashPassword(password: string): Promise<string> {
+    return bcrypt.hash(password, 12);
+  }
+  ```
+
+- [ ] **Step 4: Verify GREEN**
+      Run: `npm test hash.test.ts`
+      Expected: PASS, no regressions
+
+- [ ] **Step 5: Commit**
+  ```bash
+  git add src/auth/hash.ts tests/auth/hash.test.ts
+  git commit -m "feat: add password hashing with bcrypt"
+  ```
 
 ## Phase 3: Testing [PENDING]
 
-- [ ] 3.1 Write unit tests
-- [ ] 3.2 Integration tests
+- [ ] 3.1 Integration tests
 
 ## Notes
 
 - 2026-01-02: Chose bcrypt over argon2 for broader library support `ref:swift-amber-falcon`
-```
+````
 
 ### ❌ WRONG: Missing frontmatter
 
@@ -254,14 +284,15 @@ Add authentication
 
 ## Troubleshooting
 
-| Error Message              | Fix                                                                       |
-| -------------------------- | ------------------------------------------------------------------------- |
-| "Missing frontmatter"      | Add `---\nstatus: in-progress\nphase: 1\nupdated: 2026-01-02\n---` at top |
-| "Multiple CURRENT markers" | Remove `← CURRENT` from all but the active task                           |
-| "Invalid citation format"  | Use `ref:delegation-id` format (e.g., `ref:swift-amber-falcon`)           |
-| "Missing goal"             | Add `## Goal` section with one-sentence description                       |
-| "Empty phase"              | Add at least one task to each phase                                       |
-| "Invalid phase status"     | Use `[PENDING]`, `[IN PROGRESS]`, `[COMPLETE]`, or `[BLOCKED]`            |
+| Error Message              | Fix                                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| "Missing frontmatter"      | Add `---\nstatus: in-progress\nphase: 1\nupdated: 2026-01-02\n---` at top                              |
+| "Multiple CURRENT markers" | Remove `← CURRENT` from all but the active task                                                        |
+| "Invalid citation format"  | Use `ref:delegation-id` format (e.g., `ref:swift-amber-falcon`)                                        |
+| "Missing goal"             | Add `## Goal` section with one-sentence description                                                    |
+| "Empty phase"              | Add at least one task to each phase                                                                    |
+| "Invalid phase status"     | Use `[PENDING]`, `[IN PROGRESS]`, `[COMPLETE]`, or `[BLOCKED]`                                         |
+| "Missing TDD steps"        | Add RED/GREEN cycle to all implementation tasks: write test → verify fails → implement → verify passes |
 
 ---
 
@@ -275,3 +306,15 @@ Before calling `plan_save`, verify:
 - [ ] **Single CURRENT:** Is exactly one task marked `← CURRENT`?
 - [ ] **Valid markers:** Do all phases use valid status markers?
 - [ ] **Hierarchical IDs:** Are tasks numbered correctly (1.1, 1.2, 2.1)?
+
+---
+
+### TDD Checklist (for implementation tasks)
+
+Before saving a plan with implementation tasks, verify:
+
+- [ ] **Failing test first:** Is there a test that will fail before implementation?
+- [ ] **RED verified:** Will the test be run and confirmed to fail?
+- [ ] **Minimal implementation:** Is the implementation step minimal (just enough to pass)?
+- [ ] **GREEN verified:** Will the test be run and confirmed to pass?
+- [ ] **No untested code:** Does any implementation step lack a corresponding test?
