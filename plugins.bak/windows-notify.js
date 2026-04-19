@@ -1,77 +1,88 @@
 const MAX_RESULT_LENGTH = 160;
-const REMOTE_APP_LOGO_URL =
-  'https://opencode.ai/apple-touch-icon-v3.png';
+const REMOTE_APP_LOGO_URL = "https://opencode.ai/apple-touch-icon-v3.png";
 
-const normalizeSummaryText = (value) => value.replace(/\s+/g, ' ').trim();
+const normalizeSummaryText = (value) => value.replace(/\s+/g, " ").trim();
 
 const truncateText = (value, maxLength = MAX_RESULT_LENGTH) => {
   const normalized = normalizeSummaryText(value);
-  if (!normalized) return '';
+  if (!normalized) return "";
   if (normalized.length <= maxLength) return normalized;
   return `${normalized.slice(0, maxLength - 3).trimEnd()}...`;
 };
 
 export const formatChangeSummary = (session) => {
-  if (!session?.summary) return '';
+  if (!session?.summary) return "";
 
   const { additions = 0, deletions = 0, files = 0 } = session.summary;
   const parts = [];
 
   if (additions > 0) parts.push(`+${additions}`);
   if (deletions > 0) parts.push(`-${deletions}`);
-  if (files > 0) parts.push(`${files} file${files === 1 ? '' : 's'}`);
+  if (files > 0) parts.push(`${files} file${files === 1 ? "" : "s"}`);
 
-  return parts.join(' · ');
+  return parts.join(" · ");
 };
 
 export const extractLastResultFromMessages = (messages) => {
-  if (!Array.isArray(messages)) return '';
+  if (!Array.isArray(messages)) return "";
 
-  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+  for (
+    let messageIndex = messages.length - 1;
+    messageIndex >= 0;
+    messageIndex -= 1
+  ) {
     const message = messages[messageIndex];
-    if (message?.info?.role !== 'assistant') continue;
+    if (message?.info?.role !== "assistant") continue;
 
     const parts = Array.isArray(message.parts) ? message.parts : [];
     for (let partIndex = parts.length - 1; partIndex >= 0; partIndex -= 1) {
       const part = parts[partIndex];
 
-      if (part?.type === 'text' && part.text) {
+      if (part?.type === "text" && part.text) {
         const text = truncateText(part.text);
         if (text) return text;
       }
 
-      if (part?.type === 'tool' && part.state?.status === 'completed' && part.state.title) {
+      if (
+        part?.type === "tool" &&
+        part.state?.status === "completed" &&
+        part.state.title
+      ) {
         return truncateText(`工具：${part.state.title}`);
       }
 
-      if (part?.type === 'patch' && Array.isArray(part.files) && part.files.length > 0) {
-        const listedFiles = part.files.slice(0, 2).join(', ');
+      if (
+        part?.type === "patch" &&
+        Array.isArray(part.files) &&
+        part.files.length > 0
+      ) {
+        const listedFiles = part.files.slice(0, 2).join(", ");
         const remainder =
-          part.files.length > 2 ? ` 等${part.files.length}个文件` : '';
+          part.files.length > 2 ? ` 等${part.files.length}个文件` : "";
         return truncateText(`修改：${listedFiles}${remainder}`);
       }
     }
   }
 
-  return '';
+  return "";
 };
 
 const extractErrorMessage = (error) => {
-  if (!error) return '';
-  if (typeof error === 'string') return truncateText(error);
+  if (!error) return "";
+  if (typeof error === "string") return truncateText(error);
 
   const dataMessage = error?.data?.message;
-  if (typeof dataMessage === 'string' && dataMessage.trim()) {
+  if (typeof dataMessage === "string" && dataMessage.trim()) {
     return truncateText(dataMessage);
   }
 
   const directMessage = error?.message;
-  if (typeof directMessage === 'string' && directMessage.trim()) {
+  if (typeof directMessage === "string" && directMessage.trim()) {
     return truncateText(directMessage);
   }
 
   const errorName = error?.name;
-  if (typeof errorName === 'string' && errorName.trim()) {
+  if (typeof errorName === "string" && errorName.trim()) {
     return truncateText(errorName);
   }
 
@@ -79,11 +90,15 @@ const extractErrorMessage = (error) => {
 };
 
 export const extractLastErrorFromMessages = (messages) => {
-  if (!Array.isArray(messages)) return '';
+  if (!Array.isArray(messages)) return "";
 
-  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+  for (
+    let messageIndex = messages.length - 1;
+    messageIndex >= 0;
+    messageIndex -= 1
+  ) {
     const message = messages[messageIndex];
-    if (message?.info?.role !== 'assistant') continue;
+    if (message?.info?.role !== "assistant") continue;
 
     const assistantError = extractErrorMessage(message?.info?.error);
     if (assistantError) return assistantError;
@@ -92,15 +107,16 @@ export const extractLastErrorFromMessages = (messages) => {
     for (let partIndex = parts.length - 1; partIndex >= 0; partIndex -= 1) {
       const part = parts[partIndex];
 
-      if (part?.type === 'tool' && part.state?.status === 'error') {
+      if (part?.type === "tool" && part.state?.status === "error") {
         const toolError = extractErrorMessage(part.state?.error);
         if (toolError) return toolError;
-        if (part.state?.title) return truncateText(`工具失败：${part.state.title}`);
+        if (part.state?.title)
+          return truncateText(`工具失败：${part.state.title}`);
       }
     }
   }
 
-  return '';
+  return "";
 };
 
 export const WindowsNotifyPlugin = async ({ $, client }) => {
@@ -111,20 +127,25 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
   const notifiedTaskErrors = new Set();
   const questionNotifications = new Map();
   const permissionNotifications = new Map();
-  const QUESTION_TOOLS = new Set(['question', 'ask_user_question', 'askuserquestion']);
+  const QUESTION_TOOLS = new Set([
+    "question",
+    "ask_user_question",
+    "askuserquestion",
+  ]);
 
   const getShortSessionID = (sessionID) => sessionID.slice(0, 8);
 
   const isBusyStatus = (status) =>
-    status === 'busy' || (typeof status === 'object' && status?.type === 'busy');
+    status === "busy" ||
+    (typeof status === "object" && status?.type === "busy");
 
   const escapePowerShell = (value) => value.replace(/'/g, "''");
 
   const getQuestionText = (args) => {
     const questions = args?.questions;
-    if (!Array.isArray(questions) || questions.length === 0) return '';
+    if (!Array.isArray(questions) || questions.length === 0) return "";
     const questionText = questions[0]?.question;
-    return typeof questionText === 'string' ? truncateText(questionText) : '';
+    return typeof questionText === "string" ? truncateText(questionText) : "";
   };
 
   const listSessionMessages = async (sessionID) => {
@@ -132,7 +153,11 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
 
     const attempts = [
       () => client.session.messages({ sessionID, limit: 10 }),
-      () => client.session.messages({ path: { id: sessionID }, query: { limit: 10 } }),
+      () =>
+        client.session.messages({
+          path: { id: sessionID },
+          query: { limit: 10 },
+        }),
     ];
 
     let lastError = null;
@@ -151,9 +176,10 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
     }
 
     if (lastError) {
-      await logWarn('Failed to load session messages for notification', {
+      await logWarn("Failed to load session messages for notification", {
         sessionID,
-        error: lastError instanceof Error ? lastError.message : String(lastError),
+        error:
+          lastError instanceof Error ? lastError.message : String(lastError),
       });
     }
 
@@ -193,8 +219,9 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
     return current;
   };
 
-  const getNotificationText = async (session, errorMessage = '') => {
-    const label = session.title || session.slug || getShortSessionID(session.id);
+  const getNotificationText = async (session, errorMessage = "") => {
+    const label =
+      session.title || session.slug || getShortSessionID(session.id);
     const changeSummary = formatChangeSummary(session);
     const messages = await listSessionMessages(session.id);
     const messageError = extractLastErrorFromMessages(messages);
@@ -209,7 +236,8 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
     }
 
     const bodyParts = [
-      changeSummary || `主会话已完成 · session ${getShortSessionID(session.id)}`,
+      changeSummary ||
+        `主会话已完成 · session ${getShortSessionID(session.id)}`,
     ];
 
     if (lastResult) {
@@ -218,43 +246,44 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
 
     return {
       title: `OpenCode · ${label}`,
-      body: bodyParts.join('\n'),
+      body: bodyParts.join("\n"),
     };
   };
 
-  const sendNotification = async (session, errorMessage = '') => {
+  const sendNotification = async (session, errorMessage = "") => {
     const { title, body } = await getNotificationText(session, errorMessage);
     const script = [
-      'Import-Module BurntToast',
+      "Import-Module BurntToast",
       `$title = '${escapePowerShell(title)}'`,
       `$body = '${escapePowerShell(body)}'`,
       `$appLogo = '${escapePowerShell(REMOTE_APP_LOGO_URL)}'`,
-      'New-BurntToastNotification -Text $title, $body -AppLogo $appLogo',
-    ].join('\n');
+      "New-BurntToastNotification -Text $title, $body -AppLogo $appLogo",
+    ].join("\n");
 
-    const encoded = Buffer.from(script, 'utf16le').toString('base64');
+    const encoded = Buffer.from(script, "utf16le").toString("base64");
     await $`pwsh.exe -NoProfile -EncodedCommand ${encoded}`;
   };
 
   const sendTextNotification = async (session, body) => {
-    const label = session.title || session.slug || getShortSessionID(session.id);
+    const label =
+      session.title || session.slug || getShortSessionID(session.id);
     const script = [
-      'Import-Module BurntToast',
+      "Import-Module BurntToast",
       `$title = '${escapePowerShell(`OpenCode · ${label}`)}'`,
       `$body = '${escapePowerShell(body)}'`,
       `$appLogo = '${escapePowerShell(REMOTE_APP_LOGO_URL)}'`,
-      'New-BurntToastNotification -Text $title, $body -AppLogo $appLogo',
-    ].join('\n');
+      "New-BurntToastNotification -Text $title, $body -AppLogo $appLogo",
+    ].join("\n");
 
-    const encoded = Buffer.from(script, 'utf16le').toString('base64');
+    const encoded = Buffer.from(script, "utf16le").toString("base64");
     await $`pwsh.exe -NoProfile -EncodedCommand ${encoded}`;
   };
 
   const logWarn = async (message, extra) => {
     await client.app.log({
       body: {
-        service: 'windows-notify-plugin',
-        level: 'warn',
+        service: "windows-notify-plugin",
+        level: "warn",
         message,
         extra,
       },
@@ -273,11 +302,11 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
       notifiedRootID = rootSession.id;
       notifyingRoots.add(rootSession.id);
 
-      await sendNotification(rootSession, rootErrors.get(rootSession.id) ?? '');
+      await sendNotification(rootSession, rootErrors.get(rootSession.id) ?? "");
       rootActivity.set(rootSession.id, false);
       rootErrors.delete(rootSession.id);
     } catch (error) {
-      await logWarn('Failed to process Windows notification event', {
+      await logWarn("Failed to process Windows notification event", {
         sessionID,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -288,7 +317,7 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
     }
   };
 
-  const notifyTaskSessionError = async (sessionID, errorMessage = '') => {
+  const notifyTaskSessionError = async (sessionID, errorMessage = "") => {
     if (notifiedTaskErrors.has(sessionID)) return;
 
     try {
@@ -298,7 +327,7 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
       notifiedTaskErrors.add(sessionID);
       await sendNotification(session, errorMessage);
     } catch (error) {
-      await logWarn('Failed to send task error notification', {
+      await logWarn("Failed to send task error notification", {
         sessionID,
         error: error instanceof Error ? error.message : String(error),
       });
@@ -313,10 +342,12 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
       questionNotifications.set(callID, sessionID);
       await sendTextNotification(
         session,
-        questionText ? `Agent 正在等你回答：${questionText}` : 'Agent 正在等你回答',
+        questionText
+          ? `Agent 正在等你回答：${questionText}`
+          : "Agent 正在等你回答",
       );
     } catch (error) {
-      await logWarn('Failed to send question notification', {
+      await logWarn("Failed to send question notification", {
         sessionID,
         callID,
         error: error instanceof Error ? error.message : String(error),
@@ -332,10 +363,12 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
       permissionNotifications.set(permissionID, sessionID);
       await sendTextNotification(
         session,
-        title ? `Agent 需要你的确认：${truncateText(title)}` : 'Agent 需要你的确认',
+        title
+          ? `Agent 需要你的确认：${truncateText(title)}`
+          : "Agent 需要你的确认",
       );
     } catch (error) {
-      await logWarn('Failed to send permission notification', {
+      await logWarn("Failed to send permission notification", {
         sessionID,
         permissionID,
         error: error instanceof Error ? error.message : String(error),
@@ -352,7 +385,10 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
       }
     }
 
-    for (const [permissionID, trackedSessionID] of permissionNotifications.entries()) {
+    for (const [
+      permissionID,
+      trackedSessionID,
+    ] of permissionNotifications.entries()) {
       if (trackedSessionID === sessionID) {
         permissionNotifications.delete(permissionID);
       }
@@ -360,16 +396,23 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
   };
 
   return {
-    'tool.execute.before': async (input, output) => {
+    "tool.execute.before": async (input, output) => {
       if (!QUESTION_TOOLS.has(input.tool)) return;
-      await notifyQuestion(input.sessionID, input.callID, getQuestionText(output?.args));
+      await notifyQuestion(
+        input.sessionID,
+        input.callID,
+        getQuestionText(output?.args),
+      );
     },
-    'tool.execute.after': async (input) => {
+    "tool.execute.after": async (input) => {
       if (!QUESTION_TOOLS.has(input.tool)) return;
       questionNotifications.delete(input.callID);
     },
     event: async ({ event }) => {
-      if (event.type === 'session.created' || event.type === 'session.updated') {
+      if (
+        event.type === "session.created" ||
+        event.type === "session.updated"
+      ) {
         const info = event.properties?.info;
         if (info?.id) {
           sessionCache.set(info.id, info);
@@ -377,7 +420,7 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
         return;
       }
 
-      if (event.type === 'session.deleted') {
+      if (event.type === "session.deleted") {
         const sessionID = event.properties?.info?.id;
         if (sessionID) {
           clearSessionNotificationState(sessionID);
@@ -385,15 +428,22 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
         return;
       }
 
-      if (event.type === 'permission.updated' || event.type === 'permission.asked') {
+      if (
+        event.type === "permission.updated" ||
+        event.type === "permission.asked"
+      ) {
         const permissionID = event.properties?.id;
         const sessionID = event.properties?.sessionID;
         if (!permissionID || !sessionID) return;
-        await notifyPermission(sessionID, permissionID, event.properties?.title);
+        await notifyPermission(
+          sessionID,
+          permissionID,
+          event.properties?.title,
+        );
         return;
       }
 
-      if (event.type === 'permission.replied') {
+      if (event.type === "permission.replied") {
         const permissionID = event.properties?.permissionID;
         if (permissionID) {
           permissionNotifications.delete(permissionID);
@@ -401,13 +451,13 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
         return;
       }
 
-      if (event.type === 'session.status') {
+      if (event.type === "session.status") {
         const sessionID = event.properties?.sessionID;
         const status = event.properties?.status;
 
         if (!sessionID) return;
 
-        if (status?.type === 'idle') {
+        if (status?.type === "idle") {
           await notifyRootSession(sessionID);
           return;
         }
@@ -418,7 +468,7 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
           const rootSession = await getRootSessionInfo(sessionID);
           rootActivity.set(rootSession.id, true);
         } catch (error) {
-          await logWarn('Failed to resolve root session for status event', {
+          await logWarn("Failed to resolve root session for status event", {
             sessionID,
             status,
             error: error instanceof Error ? error.message : String(error),
@@ -428,7 +478,7 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
         return;
       }
 
-      if (event.type === 'session.error') {
+      if (event.type === "session.error") {
         const sessionID = event.properties?.sessionID;
         if (!sessionID) return;
 
@@ -445,7 +495,7 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
           rootActivity.set(rootSession.id, true);
           rootErrors.set(rootSession.id, errorMessage);
         } catch (error) {
-          await logWarn('Failed to resolve root session for error event', {
+          await logWarn("Failed to resolve root session for error event", {
             sessionID,
             error: error instanceof Error ? error.message : String(error),
           });
@@ -454,7 +504,7 @@ export const WindowsNotifyPlugin = async ({ $, client }) => {
         return;
       }
 
-      if (event.type !== 'session.idle') return;
+      if (event.type !== "session.idle") return;
 
       const sessionID = event.properties?.sessionID;
       if (!sessionID) return;

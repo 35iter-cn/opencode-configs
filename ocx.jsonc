@@ -1,4 +1,4 @@
 {
-	"$schema": "https://ocx.kdco.dev/schemas/ocx.json",
-	"registries": {}
+  "$schema": "https://ocx.kdco.dev/schemas/ocx.json",
+  "registries": {}
 }

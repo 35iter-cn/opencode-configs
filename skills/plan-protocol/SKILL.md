@@ -51,64 +51,73 @@ updated: YYYY-MM-DD
 # Implementation Plan
 
 ## Goal
+
 ONE_SENTENCE_DESCRIBING_OUTCOME
 
 ## Context & Decisions
-| Decision | Rationale | Source |
-|----------|-----------|--------|
-| CHOICE | WHY | `ref:DELEGATION_ID` |
+
+| Decision | Rationale | Source              |
+| -------- | --------- | ------------------- |
+| CHOICE   | WHY       | `ref:DELEGATION_ID` |
 
 ## Phase 1: NAME [STATUS_MARKER]
+
 - [x] 1.1 Completed task
 - [x] 1.2 Another completed task → `ref:DELEGATION_ID`
 
 ## Phase 2: NAME [IN PROGRESS]
+
 - [x] 2.1 Completed task
 - [ ] **2.2 Current task** ← CURRENT
 - [ ] 2.3 Pending task
 
 ## Phase 3: NAME [PENDING]
+
 - [ ] 3.1 Future task
 - [ ] 3.2 Another future task
 
 ## Notes
+
 - YYYY-MM-DD: Observation or decision `ref:DELEGATION_ID`
 ```
 
 ### Frontmatter Fields
 
-| Field | Values | Description |
-|-------|--------|-------------|
-| `status` | `not-started`, `in-progress`, `complete`, `blocked` | Overall plan status |
-| `phase` | Number (1, 2, 3...) | Current phase number |
-| `updated` | `YYYY-MM-DD` | Last update date |
+| Field     | Values                                              | Description          |
+| --------- | --------------------------------------------------- | -------------------- |
+| `status`  | `not-started`, `in-progress`, `complete`, `blocked` | Overall plan status  |
+| `phase`   | Number (1, 2, 3...)                                 | Current phase number |
+| `updated` | `YYYY-MM-DD`                                        | Last update date     |
 
 ### Phase Status Markers
 
-| Marker | Meaning |
-|--------|---------|
-| `[PENDING]` | Not yet started |
+| Marker          | Meaning                   |
+| --------------- | ------------------------- |
+| `[PENDING]`     | Not yet started           |
 | `[IN PROGRESS]` | Currently being worked on |
-| `[COMPLETE]` | Finished successfully |
-| `[BLOCKED]` | Waiting on dependencies |
+| `[COMPLETE]`    | Finished successfully     |
+| `[BLOCKED]`     | Waiting on dependencies   |
 
 ---
 
 ## State Machine
 
 ### Plan Lifecycle
+
 ```
 not-started → in-progress → complete
                          ↘ blocked
 ```
 
 ### Phase Lifecycle
+
 ```
 [PENDING] → [IN PROGRESS] → [COMPLETE]
                          ↘ [BLOCKED]
 ```
 
 ### Task Lifecycle
+
 ```
 [ ] unchecked → [x] checked
 ```
@@ -134,11 +143,11 @@ Citations reference delegation research. The flow is:
 
 ### When to Cite
 
-| Situation | Action |
-|-----------|--------|
+| Situation                                | Action                           |
+| ---------------------------------------- | -------------------------------- |
 | Architectural decision based on research | Add to Context & Decisions table |
-| Task informed by research | Append `→ ref:id` to task line |
-| Implementation detail from research | Inline citation in Notes |
+| Task informed by research                | Append `→ ref:id` to task line   |
+| Implementation detail from research      | Inline citation in Notes         |
 
 ### How to Find Delegation IDs
 
@@ -167,28 +176,34 @@ updated: 2026-01-02
 # Implementation Plan
 
 ## Goal
+
 Add JWT authentication with refresh token support
 
 ## Context & Decisions
-| Decision | Rationale | Source |
-|----------|-----------|--------|
-| Use bcrypt (12 rounds) | Industry standard, balance of security/speed | `ref:swift-amber-falcon` |
-| JWT with refresh tokens | Stateless auth, mobile-friendly | `ref:calm-jade-owl` |
+
+| Decision                | Rationale                                    | Source                   |
+| ----------------------- | -------------------------------------------- | ------------------------ |
+| Use bcrypt (12 rounds)  | Industry standard, balance of security/speed | `ref:swift-amber-falcon` |
+| JWT with refresh tokens | Stateless auth, mobile-friendly              | `ref:calm-jade-owl`      |
 
 ## Phase 1: Research [COMPLETE]
+
 - [x] 1.1 Research auth patterns → `ref:swift-amber-falcon`
 - [x] 1.2 Evaluate token strategies → `ref:calm-jade-owl`
 
 ## Phase 2: Implementation [IN PROGRESS]
+
 - [x] 2.1 Set up project structure
 - [ ] **2.2 Add password hashing** ← CURRENT
 - [ ] 2.3 Implement JWT generation
 
 ## Phase 3: Testing [PENDING]
+
 - [ ] 3.1 Write unit tests
 - [ ] 3.2 Integration tests
 
 ## Notes
+
 - 2026-01-02: Chose bcrypt over argon2 for broader library support `ref:swift-amber-falcon`
 ```
 
@@ -198,6 +213,7 @@ Add JWT authentication with refresh token support
 # Implementation Plan
 
 ## Goal
+
 Add authentication
 ```
 
@@ -207,6 +223,7 @@ Add authentication
 
 ```markdown
 ## Phase 2: Implementation [IN PROGRESS]
+
 - [ ] **2.1 Task one** ← CURRENT
 - [ ] **2.2 Task two** ← CURRENT
 ```
@@ -217,9 +234,10 @@ Add authentication
 
 ```markdown
 ## Context & Decisions
-| Decision | Rationale | Source |
-|----------|-----------|--------|
-| Use Redis | It's fast | - |
+
+| Decision  | Rationale | Source |
+| --------- | --------- | ------ |
+| Use Redis | It's fast | -      |
 ```
 
 **Error:** Decisions must cite research with `ref:delegation-id`.
@@ -236,14 +254,14 @@ Add authentication
 
 ## Troubleshooting
 
-| Error Message | Fix |
-|---------------|-----|
-| "Missing frontmatter" | Add `---\nstatus: in-progress\nphase: 1\nupdated: 2026-01-02\n---` at top |
-| "Multiple CURRENT markers" | Remove `← CURRENT` from all but the active task |
-| "Invalid citation format" | Use `ref:delegation-id` format (e.g., `ref:swift-amber-falcon`) |
-| "Missing goal" | Add `## Goal` section with one-sentence description |
-| "Empty phase" | Add at least one task to each phase |
-| "Invalid phase status" | Use `[PENDING]`, `[IN PROGRESS]`, `[COMPLETE]`, or `[BLOCKED]` |
+| Error Message              | Fix                                                                       |
+| -------------------------- | ------------------------------------------------------------------------- |
+| "Missing frontmatter"      | Add `---\nstatus: in-progress\nphase: 1\nupdated: 2026-01-02\n---` at top |
+| "Multiple CURRENT markers" | Remove `← CURRENT` from all but the active task                           |
+| "Invalid citation format"  | Use `ref:delegation-id` format (e.g., `ref:swift-amber-falcon`)           |
+| "Missing goal"             | Add `## Goal` section with one-sentence description                       |
+| "Empty phase"              | Add at least one task to each phase                                       |
+| "Invalid phase status"     | Use `[PENDING]`, `[IN PROGRESS]`, `[COMPLETE]`, or `[BLOCKED]`            |
 
 ---
 

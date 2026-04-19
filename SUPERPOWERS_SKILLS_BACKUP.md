@@ -5,14 +5,14 @@
 
 ## Skills 列表
 
-| Skill | 来源 | 安装命令 |
-|-------|------|----------|
-| brainstorming | obra/superpowers | `opencode run "install skill obra/superpowers/brainstorming"` |
-| systematic-debugging | obra/superpowers | `opencode run "install skill obra/superpowers/systematic-debugging"` |
-| test-driven-development | obra/superpowers | `opencode run "install skill obra/superpowers/test-driven-development"` |
+| Skill                          | 来源             | 安装命令                                                                       |
+| ------------------------------ | ---------------- | ------------------------------------------------------------------------------ |
+| brainstorming                  | obra/superpowers | `opencode run "install skill obra/superpowers/brainstorming"`                  |
+| systematic-debugging           | obra/superpowers | `opencode run "install skill obra/superpowers/systematic-debugging"`           |
+| test-driven-development        | obra/superpowers | `opencode run "install skill obra/superpowers/test-driven-development"`        |
 | verification-before-completion | obra/superpowers | `opencode run "install skill obra/superpowers/verification-before-completion"` |
-| writing-plans | obra/superpowers | `opencode run "install skill obra/superpowers/writing-plans"` |
-| writing-skills | obra/superpowers | `opencode run "install skill obra/superpowers/writing-skills"` |
+| writing-plans                  | obra/superpowers | `opencode run "install skill obra/superpowers/writing-plans"`                  |
+| writing-skills                 | obra/superpowers | `opencode run "install skill obra/superpowers/writing-skills"`                 |
 
 ## 或者直接使用 plugin（推荐）
 
@@ -20,9 +20,7 @@
 
 ```json
 {
-  "plugin": [
-    "superpowers@git+https://github.com/obra/superpowers.git"
-  ]
+  "plugin": ["superpowers@git+https://github.com/obra/superpowers.git"]
 }
 ```
 
@@ -43,4 +41,5 @@ cp -r superpowers/skills/* ~/.agents/skills/
 ```
 
 ---
-*注：此清单创建于删除前，用于备份和恢复参考*
+
+_注：此清单创建于删除前，用于备份和恢复参考_
