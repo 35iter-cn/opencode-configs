@@ -10,7 +10,7 @@
     {
       "files": "bun.lock",
       "options": {
-        "parser": "json",
+        "parser": "jsonc",
         "trailingComma": "none"
       }
     }

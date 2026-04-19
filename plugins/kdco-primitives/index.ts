@@ -15,7 +15,13 @@ export { logWarn } from "./log-warn"
 // Concurrency
 export { Mutex } from "./mutex"
 // Shell escaping
-export { assertShellSafe, escapeAppleScript, escapeBash, escapeBatch } from "./shell"
+export {
+	assertShellSafe,
+	escapeAppleScript,
+	escapeBash,
+	escapeBatch,
+	escapeFishDoubleQuoted,
+} from "./shell"
 // Temp directory
 export { getTempDir } from "./temp"
 // Terminal detection

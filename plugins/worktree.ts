@@ -829,6 +829,7 @@ async function loadWorktreeConfig(directory: string, log: Logger): Promise<Workt
 
   // Custom base path for worktree storage (supports ~)
   // Default: ~/.local/share/opencode/worktree
+  // Folders: {path+branchHash12}-{repo}-{branch-readable}, e.g. a1b2c3d4e5f6-tenant-portal-test
   // "worktreePath": "~/my-worktrees",
 
   "sync": {

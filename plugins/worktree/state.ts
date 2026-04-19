@@ -9,6 +9,7 @@
  */
 
 import { Database } from "bun:sqlite"
+import * as crypto from "node:crypto"
 import { mkdirSync } from "node:fs"
 import * as os from "node:os"
 import * as path from "node:path"
@@ -88,8 +89,63 @@ function getWorktreeBaseDirectory(): string {
 	return path.join(os.homedir(), ".local", "share", "opencode", "worktree")
 }
 
+/** Derive a filesystem-safe folder prefix from the repo directory name (e.g. tenant-portal). */
+function sanitizeProjectFolderPrefix(projectRoot: string): string {
+	const base = path.basename(path.resolve(projectRoot))
+	let s = base
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9._-]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.replace(/-+/g, "-")
+	if (!s) {
+		s = "project"
+	}
+	if (s.length > 48) {
+		s = s.slice(0, 48).replace(/-+$/g, "")
+	}
+	return s
+}
+
+/**
+ * 12-hex from SHA256(`<resolved project path>\\0<branch>`) — global uniqueness for the worktree folder.
+ */
+function hashProjectPathAndBranch12(projectRoot: string, branch: string): string {
+	const resolved = path.resolve(projectRoot)
+	const payload = `${resolved}\0${branch}`
+	return crypto.createHash("sha256").update(payload, "utf8").digest("hex").slice(0, 12)
+}
+
+/**
+ * Branch-only filesystem-safe segment (lossy); uniqueness from hashProjectPathAndBranch12.
+ * @param maxReadable - cap so full worktree dir name stays within OS limits (single path segment).
+ */
+function sanitizeBranchReadable(branch: string, maxReadable: number): string {
+	let s = branch.trim()
+	if (!s) {
+		return "branch"
+	}
+	s = s
+		.replace(/[/\\:*?"<>|]+/g, "-")
+		.replace(/[\x00-\x1f\x7f]/g, "")
+		.replace(/\s+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.replace(/-+/g, "-")
+	s = s.replace(/[.\s]+$/g, "").replace(/^[.\s]+/g, "")
+	if (!s) {
+		return "branch"
+	}
+	if (s.length > maxReadable) {
+		s = s.slice(0, maxReadable).replace(/-+$/g, "")
+	}
+	return s
+}
+
 /**
  * Get the worktree path for a given project and branch.
+ *
+ * Layout: `{base}/{path+branch hash12}-{repo-basename}-{branch-readable}` — e.g.
+ * `.../worktree/a1b2c3d4e5f6-tenant-portal-test` (hash = first 12 hex of sha256(resolved path + \\0 + branch)).
  *
  * @param projectRoot - Absolute path to the project root
  * @param branch - Branch name for the worktree
@@ -104,8 +160,13 @@ export async function getWorktreePath(
 	if (!branch || typeof branch !== "string") {
 		throw new Error("branch is required")
 	}
-	const projectId = await getProjectId(projectRoot)
-	return path.join(basePath ?? getWorktreeBaseDirectory(), projectId, branch)
+	const pathBranchHash12 = hashProjectPathAndBranch12(projectRoot, branch)
+	const prefix = sanitizeProjectFolderPrefix(projectRoot)
+	// Single segment: 12 + 1 + prefix + 1 + branchOnly + 2 dashes <= 255
+	const maxReadable = Math.max(8, 255 - 14 - prefix.length)
+	const branchOnly = sanitizeBranchReadable(branch, maxReadable)
+	const dirName = `${pathBranchHash12}-${prefix}-${branchOnly}`
+	return path.join(basePath ?? getWorktreeBaseDirectory(), dirName)
 }
 
 /**

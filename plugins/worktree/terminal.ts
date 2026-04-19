@@ -17,6 +17,7 @@ import {
 	escapeAppleScript,
 	escapeBash,
 	escapeBatch,
+	escapeFishDoubleQuoted,
 	getTempDir,
 	isInsideTmux,
 	logWarn,
@@ -158,6 +159,41 @@ export function buildBatchCommandFromArgv(argv?: string[]): string | undefined {
 	}
 
 	return normalizedArgv.map((arg) => `"${escapeBatch(arg).replace(/"/g, '""')}"`).join(" ")
+}
+
+/**
+ * When `$SHELL` is fish (and `fish` is on PATH), generate fish worktree scripts so
+ * `opencode` and PATH match the user's interactive environment. Override with
+ * `OPENCODE_WORKTREE_SHELL=fish|bash`.
+ */
+export function resolveWorktreeInteractiveShell(): "fish" | "bash" {
+	const override = process.env.OPENCODE_WORKTREE_SHELL?.trim().toLowerCase()
+	if (override === "fish") {
+		return "fish"
+	}
+	if (override === "bash") {
+		return "bash"
+	}
+	const shell = process.env.SHELL ?? ""
+	if (shell.includes("fish") && Bun.which("fish")) {
+		return "fish"
+	}
+	return "bash"
+}
+
+function buildFishArgvAssignmentFromArgv(argv: string[]): string {
+	const parts = argv.map((a) => `"${escapeFishDoubleQuoted(a)}"`).join(" ")
+	return `set -l _wt_argv ${parts}`
+}
+
+/** Fish script: self-delete on exit via fish_exit event. */
+function wrapFishWithSelfCleanup(scriptBody: string): string {
+	return `#!/usr/bin/env fish
+function _wt_cleanup --on-event fish_exit
+  rm -f (status filename)
+end
+${scriptBody}
+`
 }
 
 type ResolveExecutable = (command: string) => string | null | undefined
@@ -1218,11 +1254,93 @@ export async function openWindowsTerminal(cwd: string, argv?: string[]): Promise
 // =============================================================================
 
 /**
+ * Resolve Windows Terminal window target for `wt.exe -w`.
+ * `0` = last-focused window (new tab there). `-1` / `new` = always a new window.
+ * Override: `OPENCODE_WORKTREE_WT_WINDOW=0` (default) | `-1` | `new`.
+ */
+function resolveWtWindowId(): string {
+	const raw = process.env.OPENCODE_WORKTREE_WT_WINDOW?.trim()
+	if (!raw) {
+		return "0"
+	}
+	const lower = raw.toLowerCase()
+	if (lower === "new" || lower === "-1") {
+		return "-1"
+	}
+	return raw
+}
+
+/**
+ * Profile for `wt new-tab -p` (name or `{guid}` — same as WT Settings).
+ *
+ * Priority:
+ * 1. `OPENCODE_WORKTREE_WT_PROFILE` — manual override
+ * 2. `WT_PROFILE_ID` — **current tab's profile** (WT injects this into child processes), so the
+ *    new tab inherits font, color scheme, padding, etc. from the tab you launched OpenCode from
+ * 3. `WSL_DISTRO_NAME` — fallback when not running inside WT (no `WT_PROFILE_ID`)
+ */
+function resolveWtNewTabProfile(): string | undefined {
+	const explicit = process.env.OPENCODE_WORKTREE_WT_PROFILE?.trim()
+	if (explicit) {
+		return explicit
+	}
+	const wtProfileId = process.env.WT_PROFILE_ID?.trim()
+	if (wtProfileId) {
+		return wtProfileId
+	}
+	return process.env.WSL_DISTRO_NAME?.trim() || undefined
+}
+
+/**
+ * Build `wt.exe` argv for launching a login shell inside WSL.
+ *
+ * `wt.exe -d` expects a **Windows** path. Passing a Linux path (e.g. `/root/...`)
+ * fails with HRESULT 0x8007010b (invalid directory). Use `wsl.exe --cd <linux>`
+ * instead so the tab starts in the correct WSL working directory.
+ *
+ * Uses `bash -l` / `fish -l` so login PATH (e.g. `opencode` on fish_user_paths) is loaded
+ * before the generated script runs.
+ *
+ * **Tab vs new window:** Per Windows Terminal CLI, use `wt -w <id> new-tab [-p profile] -- wsl.exe …`.
+ * The `--` separates `new-tab` options from the command line; with `-p`, the command **replaces**
+ * the profile default, so `wsl.exe -d …` must be explicit (see GH/microsoft/terminal discussions).
+ * Without `-p`/`--`, `wt` may spawn a **new window** instead of a tab in the focused instance.
+ *
+ * **Looks:** Prefer `-p` = `WT_PROFILE_ID` so appearance matches the parent tab; `-p` + distro name
+ * alone targets the default dynamic WSL profile, which may differ from a customized duplicate.
+ */
+function buildWindowsTerminalWslArgv(
+	cwd: string,
+	scriptPath: string,
+	shell: "bash" | "fish",
+): string[] {
+	const wslArgs = ["wsl.exe"]
+	const distro = process.env.WSL_DISTRO_NAME?.trim()
+	if (distro) {
+		wslArgs.push("-d", distro)
+	}
+	wslArgs.push("--cd", cwd)
+	if (shell === "fish") {
+		wslArgs.push("fish", "-l", scriptPath)
+	} else {
+		wslArgs.push("bash", "-l", scriptPath)
+	}
+	const windowId = resolveWtWindowId()
+	const profile = resolveWtNewTabProfile()
+	const wt: string[] = ["wt.exe", "-w", windowId, "new-tab"]
+	if (profile) {
+		wt.push("-p", profile)
+	}
+	wt.push("--", ...wslArgs)
+	return wt
+}
+
+/**
  * Open terminal in WSL via Windows Terminal interop.
- * Falls back to bash in current terminal if wt.exe not available.
+ * Falls back to bash/fish in current terminal if wt.exe not available.
  *
  * NOTE: All WSL terminal spawns are detached, so we write the script directly
- * instead of using withTempScript. The script self-deletes via trap.
+ * instead of using withTempScript. Bash scripts self-delete via `trap`; fish via `fish_exit`.
  */
 export async function openWSLTerminal(cwd: string, argv?: string[]): Promise<TerminalResult> {
 	// Guard: validate cwd
@@ -1230,17 +1348,47 @@ export async function openWSLTerminal(cwd: string, argv?: string[]): Promise<Ter
 		return { success: false, error: "Working directory is required" }
 	}
 
-	const escapedCwd = escapeBash(cwd)
-	const command = buildBashCommandFromArgv(argv)
-	const scriptContent = wrapWithSelfCleanup(
-		command ? `cd "${escapedCwd}" && ${command}\nexec bash` : `cd "${escapedCwd}"\nexec bash`,
-	)
+	const interactive = resolveWorktreeInteractiveShell()
+	const normalizedArgv = normalizeArgv(argv)
 
-	// Write script directly - it self-deletes via trap
+	let scriptContent: string
+	let scriptExt: string
+	let spawnShell: "bash" | "fish"
+
+	if (interactive === "fish") {
+		spawnShell = "fish"
+		scriptExt = ".fish"
+		const escapedCwdFish = escapeFishDoubleQuoted(cwd)
+		const fishBody =
+			normalizedArgv.length > 0
+				? `set -l _wt_cwd "${escapedCwdFish}"
+cd -- $_wt_cwd
+or exit 1
+${buildFishArgvAssignmentFromArgv(normalizedArgv)}
+command $_wt_argv
+exec fish -l`
+				: `set -l _wt_cwd "${escapedCwdFish}"
+cd -- $_wt_cwd
+or exit 1
+exec fish -l`
+		scriptContent = wrapFishWithSelfCleanup(fishBody)
+	} else {
+		spawnShell = "bash"
+		scriptExt = ".sh"
+		const escapedCwd = escapeBash(cwd)
+		const command = buildBashCommandFromArgv(argv)
+		scriptContent = wrapWithSelfCleanup(
+			command
+				? `cd "${escapedCwd}" && ${command}\nexec bash -l`
+				: `cd "${escapedCwd}"\nexec bash -l`,
+		)
+	}
+
+	// Write script directly - it self-deletes on exit
 	// DO NOT use withTempScript - all WSL spawns are detached
 	const scriptPath = path.join(
 		getTempDir(),
-		`worktree-${Date.now()}-${Math.random().toString(36).slice(2)}.sh`,
+		`worktree-${Date.now()}-${Math.random().toString(36).slice(2)}${scriptExt}`,
 	)
 	await Bun.write(scriptPath, scriptContent)
 	await fs.chmod(scriptPath, 0o755)
@@ -1250,24 +1398,28 @@ export async function openWSLTerminal(cwd: string, argv?: string[]): Promise<Ter
 		const wtResult = Bun.spawnSync(["which", "wt.exe"])
 		if (wtResult.exitCode === 0) {
 			try {
-				const proc = Bun.spawn(["wt.exe", "-d", cwd, "bash", scriptPath], {
+				const wtArgv = buildWindowsTerminalWslArgv(cwd, scriptPath, spawnShell)
+				const proc = Bun.spawn(wtArgv, {
 					detached: true,
 					stdio: ["ignore", "ignore", "ignore"],
 				})
 				proc.unref()
 				return { success: true }
 			} catch {
-				// Fall through to bash
+				// Fall through to local shell
 			}
 		}
 
-		// Fallback: open in current terminal (new bash process)
+		// Fallback: open in current terminal (login shell so PATH matches interactive use)
 		try {
-			const proc = Bun.spawn(["bash", scriptPath], {
-				cwd,
-				detached: true,
-				stdio: ["ignore", "ignore", "ignore"],
-			})
+			const proc = Bun.spawn(
+				spawnShell === "fish" ? ["fish", "-l", scriptPath] : ["bash", "-l", scriptPath],
+				{
+					cwd,
+					detached: true,
+					stdio: ["ignore", "ignore", "ignore"],
+				},
+			)
 			proc.unref()
 			return { success: true }
 		} catch (error) {

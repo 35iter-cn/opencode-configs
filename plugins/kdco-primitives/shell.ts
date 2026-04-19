@@ -136,3 +136,21 @@ export function escapeBatch(str: string): string {
 		.replace(/>/g, "^>") // Greater than
 		.replace(/\|/g, "^|") // Pipe
 }
+
+/**
+ * Escape a string for safe use in fish double-quoted strings.
+ *
+ * Escapes `\`, `$`, `(`, `)`, `"` (fish still runs command substitution inside `"..."`
+ * for `(cmd)` unless escaped), and normalizes newlines.
+ */
+export function escapeFishDoubleQuoted(str: string): string {
+	assertShellSafe(str, "Fish argument")
+	return str
+		.replace(/\\/g, "\\\\")
+		.replace(/\$/g, "\\$")
+		.replace(/\(/g, "\\(")
+		.replace(/\)/g, "\\)")
+		.replace(/"/g, '\\"')
+		.replace(/\n/g, " ")
+		.replace(/\r/g, " ")
+}
