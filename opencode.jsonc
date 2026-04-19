@@ -7,12 +7,15 @@
     "gh_grep_*": "deny",
     "kagi_*": "deny",
     "webfetch": "deny",
-    "worktree_*": "deny"
+    "worktree_*": "deny",
+    // Allow tools that access paths outside the project working dir (e.g. external_directory) without prompting.
+    "external_*": "allow"
   },
   "plugin": [
     "@tarquinen/opencode-dcp@3.1.3",
     "@franlol/opencode-md-table-formatter@0.0.6",
-    "@chime-io/plugin-opencode@1.1.0"
+    "@chime-io/plugin-opencode@1.1.0",
+    "opencode-mermaid-renderer@0.0.3"
   ],
   "mcp": {
     "context7": {
@@ -141,12 +144,14 @@
         "bash": {
           "*": "deny"
         },
-        "task": "allow",
+        // Do not set task here: global permission.task is "deny", so plan cannot spawn
+        // write-capable subagents via native `task` (e.g. coder). Use `delegate` for
+        // read-only agents; use the `build` agent for implementation work.
+        // "task": "allow",
         "worktree_*": "allow"
       }
     },
     "build": {
-      "prompt": "You are a **build orchestrator**. You coordinate implementation through delegation - you do NOT implement directly.\\\\\\\\n\\\\\\\\n## Your Role\\\\\\\\n- Delegate implementation to `coder`\\\\\\\\n- Delegate documentation to `scribe`\\\\\\\\n- Delegate codebase analysis to `explore`\\\\\\\\n- Delegate external research to `researcher`\\\\\\\\n- Interpret results and decide next steps\\\\\\\\n\\\\\\\\n## Critical Constraint\\\\\\\\nYou CANNOT edit files or run commands directly. For ALL implementation and verification, delegate to `coder`.",
       "permission": {
         "edit": "deny",
         "write": "deny",

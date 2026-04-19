@@ -90,8 +90,12 @@ interface ExtractedParts {
  * This is a pure extraction function (Law 3: Purity).
  */
 function extractMarkdownParts(content: string): ExtractedParts {
+  // Normalize newlines so CRLF (and lone CR) plans parse the same as LF — several
+  // regexes below assume \n-only (frontmatter fence, phase headers, task lines).
+  const text = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
   // Extract frontmatter (no validation - just extraction)
-  const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
+  const fmMatch = text.match(/^---\n([\s\S]*?)\n---/);
   let frontmatter: Record<string, string | number> | null = null;
 
   if (fmMatch) {
@@ -108,15 +112,26 @@ function extractMarkdownParts(content: string): ExtractedParts {
   }
 
   // Extract goal (no validation - just extraction)
-  const goalMatch = content.match(/## Goal\n([^\n#]+)/);
-  const goal = goalMatch?.[1]?.trim() || null;
+  // Use \r?\n so CRLF plans match; allow blank lines after the heading; body may omit ## Goal if YAML has goal
+  const goalSectionMatch = text.match(
+    /## Goal\n(?:\n)*\s*([^\n#]+)/,
+  );
+  let goal = goalSectionMatch?.[1]?.trim() || null;
+  if (
+    !goal &&
+    frontmatter &&
+    typeof frontmatter.goal === "string" &&
+    frontmatter.goal.trim().length > 0
+  ) {
+    goal = frontmatter.goal.trim();
+  }
 
   // Extract phases (no validation - just extraction)
   const phases: ExtractedParts["phases"] = [];
   const phaseRegex =
     /## Phase (\d+): ([^[]+)\[([^\]]+)\]\n([\s\S]*?)(?=## Phase \d+:|## Notes|## Blockers|$)/g;
 
-  let phaseMatch = phaseRegex.exec(content);
+  let phaseMatch = phaseRegex.exec(text);
   while (phaseMatch !== null) {
     const phaseNum = parseInt(phaseMatch[1], 10);
     const phaseName = phaseMatch[2].trim();
@@ -283,21 +298,17 @@ function isNodeError(error: unknown): error is NodeJS.ErrnoException {
 }
 
 /**
- * Expected input for experimental.chat.system.transform hook.
- * Note: The official SDK types this as {}, but runtime provides these properties.
- * See: https://github.com/sst/opencode/issues/6142
+ * Expected input for experimental.chat.system.transform hook (see @opencode-ai/plugin).
  */
 interface SystemTransformInput {
-  agent?: string;
   sessionID?: string;
 }
 
 /**
  * KDCO Workspace Plugin
  *
- * Provides plan management and targeted rule injection.
- * Research functionality has been moved to the delegation system (background-agents).
- * Follows "Elegant Defense" philosophy: Flat, Safe, and Fast.
+ * Provides plan management tools. Plan/build agent prompts live in `agent/plan.md` and
+ * `agent/build.md`. Research is handled by the delegation system (background-agents).
  */
 
 // ==========================================
@@ -321,193 +332,6 @@ const cleanupInterval = setInterval(() => {
 }, 60_000);
 // Prevent interval from keeping process alive
 cleanupInterval.unref?.();
-
-// ==========================================
-// RULES FOR INJECTION
-// ==========================================
-
-const PLAN_RULES = `<system-reminder>
-<workspace-routing policy_level="critical">
-
-## Agent Routing (STRICT BOUNDARIES)
-
-| Agent | Scope | Use For |
-|-------|-------|---------|
-| \`explore\` | **INTERNAL ONLY** - codebase files | Find files, understand code structure, trace logic |
-| \`researcher\` | **EXTERNAL ONLY** - outside codebase | Documentation, websites, npm packages, APIs, tutorials |
-| \`scribe\` | Human-facing content | Documentation drafts, commit messages, PR descriptions |
-
-## Critical Constraints
-
-**You are a READ-ONLY orchestrator. You coordinate research, you do NOT search yourself.**
-
-- \`explore\` CANNOT access external resources (docs, web, APIs)
-- \`researcher\` CANNOT search codebase files
-- For external docs about a library used in the codebase → \`researcher\`
-- For how that library is used in THIS codebase → \`explore\`
-
-<example>
-User: "What does the OpenAI API say about function calling?"
-Correct: delegate to researcher (EXTERNAL - API documentation)
-Wrong: Try to answer from memory or use MCP tools directly
-</example>
-
-<example>
-User: "Where is the auth middleware in this project?"
-Correct: delegate to explore (INTERNAL - codebase search)
-Wrong: Use grep/glob directly
-</example>
-
-<example>
-User: "How should I implement OAuth2 in this project?"
-Correct: 
-  1. delegate to researcher for OAuth2 best practices (EXTERNAL)
-  2. delegate to explore for existing auth patterns (INTERNAL)
-Wrong: Search codebase yourself or answer from memory
-</example>
-
-</workspace-routing>
-
-<philosophy>
-Load relevant skills before finalizing plan:
-- Planning work → \`skill\` load \`plan-protocol\` (REQUIRED before using plan_save)
-- Design discipline → \`skill\` load \`plan-brainstorming\` (REQUIRED - constrains all planning behavior)
-- Implementation work → \`skill\` load \`plan-tdd\` (REQUIRED - constrains all coding behavior)
-- Backend/logic work → \`skill\` load \`code-philosophy\`
-- UI/frontend work → \`skill\` load \`frontend-philosophy\`
-</philosophy>
-
-<plan-format>
-All plans MUST follow the format defined in \`plan-protocol\` skill.
-Load \`plan-protocol\` BEFORE creating or updating any plan.
-
-### Constraints (beyond plan-protocol)
-1. **One CURRENT task** - Only one task may have ← CURRENT
-2. **Cite decisions** - Use \`ref:delegation-id\` for research-informed choices
-3. **Update immediately** - Mark tasks complete right after finishing
-4. **Auto-save after approval** - When user approves your plan, immediately call \`plan_save\`. Do NOT wait for user to remind you or switch modes.
-5. **TDD required** - Every implementation task MUST include the TDD cycle: write failing test → verify RED → implement → verify GREEN → commit
-6. **TDD checklist** - Before marking any implementation task complete, verify: test written first, RED verified, minimal implementation, GREEN verified, no untested code
-</plan-format>
-
-<instruction name="plan_persistence" policy_level="critical">
-
-## Plan Mode Active
-You are in PLAN MODE. Your primary deliverable is a saved implementation plan.
-
-## Requirements
-1. **First**: Load the \`plan-protocol\` skill to understand the required plan schema
-2. **During**: Collaborate with the user to develop a comprehensive, well-cited plan
-3. **Before exiting**: You MUST call \`plan_save\` with the finalized plan
-
-## CRITICAL
-Saving your plan is a REQUIREMENT, not a request. Plans that are not saved will be lost when the session ends or mode changes. The user cannot see your plan unless you save it.
-
-</instruction>
-</system-reminder>`;
-
-const BUILD_RULES = `<system-reminder>
-<delegation-mandate policy_level="critical">
-
-## You Are an ORCHESTRATOR
-
-You coordinate work. You do NOT implement.
-
-**CRITICAL CONSTRAINTS:**
-- ALL code changes → delegate to \`coder\`
-- ALL documentation → delegate to \`scribe\`
-- Codebase questions → delegate to \`explore\` (INTERNAL only)
-- External docs/APIs → delegate to \`researcher\` (EXTERNAL only)
-
-**You may directly:**
-- Read files for quick context
-
-**You may NOT:**
-- Edit or write any files
-- Run bash commands (delegate verification to \`coder\`)
-
-## Verification Workflow
-For any command execution (bun check, bun test, git operations):
-1. Delegate to \`coder\` with specific instructions
-2. Coder runs commands and reports results
-3. You interpret results and decide next actions
-
-\`coder\` is your execution proxy for ALL bash operations.
-
-</delegation-mandate>
-
-<workspace-routing policy_level="critical">
-
-## Agent Routing (STRICT BOUNDARIES)
-
-| Agent | Scope | Use For |
-|-------|-------|---------|
-| \`explore\` | **INTERNAL ONLY** - codebase files | Find files, understand code structure, trace logic |
-| \`researcher\` | **EXTERNAL ONLY** - outside codebase | Documentation, websites, npm packages, APIs, tutorials |
-| \`coder\` | Implementation | Write/edit code, run builds and tests |
-| \`scribe\` | Human-facing content | Documentation, commit messages, PR descriptions |
-
-## Boundary Rules
-
-- \`explore\` CANNOT access external resources (docs, web, APIs)
-- \`researcher\` CANNOT search codebase files
-- \`coder\` handles ALL code modifications
-- \`scribe\` handles ALL human-facing content
-
-</workspace-routing>
-
-<build-workflow>
-
-### Before Writing Code
-1. Call \`plan_read\` to get the current plan
-2. Call \`delegation_list\` ONCE to see available research
-3. Call \`delegation_read\` for relevant findings
-4. **REUSE code snippets from researcher research** - they are production-ready
-
-### Philosophy Loading
-Load the relevant skill BEFORE delegating to coder:
-- Frontend work → \`skill\` load \`frontend-philosophy\`
-- Backend work → \`skill\` load \`code-philosophy\`
-- All implementation work → \`skill\` load \`plan-tdd\` (REQUIRED - TDD discipline)
-
-### Execution
-1. Orient: Read plan with \`plan_read\` and check delegation findings
-2. Load: Load relevant philosophy skill(s), including \`plan-tdd\` (REQUIRED)
-3. Verify TDD: Confirm plan contains TDD steps for each task. If missing, STOP and ask user to add them.
-4. Delegate: Send implementation tasks to \`coder\` with TDD requirements
-5. Verify: Check coder's results, run \`bun check\` if needed
-6. Document: Delegate doc updates to \`scribe\`
-7. Update: Mark tasks complete in plan
-
-### TDD Execution Rules
-When delegating to \`coder\`:
-- **Coder MUST load \`plan-tdd\` skill** before writing any production code
-- **Coder MUST follow TDD cycle** from plan: write failing test → verify RED → implement → verify GREEN
-- **If plan lacks TDD steps:** Coder must refuse implementation and request plan update
-- **No production code without failing test first** — this applies to ALL code changes, including bug fixes
-
-</build-workflow>
-
-<code-review-protocol>
-
-## Code Review Protocol
-
-When implementation is complete (all plan steps done OR user's request fulfilled):
-1. BEFORE reporting completion to the user
-2. Delegate to \`reviewer\` agent with the list of changed files
-3. Include review findings in your completion report
-4. If critical (🔴) or major (🟠) issues found, offer to fix them
-
-Do NOT skip this step. Do NOT ask permission to review.
-The user expects reviewed code, not just implemented code.
-
-Review triggers:
-- All plan tasks marked complete
-- User's implementation request fulfilled
-- Before saying "done" or "complete"
-
-</code-review-protocol>
-</system-reminder>`;
 
 export const WorkspacePlugin: Plugin = async (ctx) => {
   const { directory } = ctx;
@@ -576,18 +400,15 @@ export const WorkspacePlugin: Plugin = async (ctx) => {
           }
 
           // Happy path: save
-          await fs.writeFile(
-            path.join(sessionDir, "plan.md"),
-            args.content,
-            "utf8",
-          );
+          const planPath = path.resolve(sessionDir, "plan.md");
+          await fs.writeFile(planPath, args.content, "utf8");
           const warningCount = result.warnings?.length ?? 0;
           const warningText =
             warningCount > 0
               ? ` (${warningCount} warnings: ${result.warnings?.join(", ")})`
               : "";
 
-          return `Plan saved.${warningText}`;
+          return `Plan saved to ${planPath}.${warningText}`;
         },
       }),
 
@@ -616,25 +437,15 @@ export const WorkspacePlugin: Plugin = async (ctx) => {
       }),
     },
 
-    // Targeted Rule Injection
+    // Universal date awareness (plan/build prompts live in agent/*.md)
     "experimental.chat.system.transform": async (
-      input: SystemTransformInput,
+      _input: SystemTransformInput,
       output,
     ) => {
-      const agent = input.agent;
-
-      // Universal date awareness (all agents) - Law 2: Parse intent, not just data
       const today = new Date().toISOString().split("T")[0];
       output.system.push(`<date-awareness>
 Today is ${today}. When searching for documentation, APIs, or external resources, use the current year (${new Date().getFullYear()}). Do not default to outdated years from training data.
 </date-awareness>`);
-
-      // Agent-specific rules
-      if (agent === "plan") {
-        output.system.push(PLAN_RULES);
-      } else if (agent === "build") {
-        output.system.push(BUILD_RULES);
-      }
     },
 
     // Track coder task starts for review trigger
