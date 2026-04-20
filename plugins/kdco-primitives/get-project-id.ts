@@ -11,6 +11,7 @@
 import * as crypto from "node:crypto";
 import { stat } from "node:fs/promises";
 import * as path from "node:path";
+import { logDebug } from "./log-debug";
 import { logWarn } from "./log-warn";
 import type { OpencodeClient } from "./types";
 import { TimeoutError, withTimeout } from "./with-timeout";
@@ -43,7 +44,7 @@ function hashPath(projectRoot: string): string {
  * project ID and associated data.
  *
  * @param projectRoot - Absolute path to the project root
- * @param client - Optional OpenCode client for logging warnings
+ * @param client - Optional OpenCode client for structured logging
  * @returns 40-char hex SHA (git root) or 16-char hash (fallback)
  * @throws {Error} When projectRoot is invalid or .git file has invalid format
  *
@@ -74,7 +75,7 @@ export async function getProjectId(
 
   // Guard: No .git directory - not a git repo (Law 1: Early Exit)
   if (!gitStat) {
-    logWarn(
+    logDebug(
       client,
       "project-id",
       `No .git found at ${projectRoot}, using path hash`,
@@ -131,7 +132,7 @@ export async function getProjectId(
     if (/^[a-f0-9]{40}$/i.test(cached) || /^[a-f0-9]{16}$/i.test(cached)) {
       return cached;
     }
-    logWarn(
+    logDebug(
       client,
       "project-id",
       `Invalid cache content at ${cacheFile}, regenerating`,

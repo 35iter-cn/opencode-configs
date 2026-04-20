@@ -11,6 +11,7 @@
 export { getProjectId } from "./get-project-id";
 
 // Logging
+export { logDebug } from "./log-debug";
 export { logWarn } from "./log-warn";
 // Concurrency
 export { Mutex } from "./mutex";
