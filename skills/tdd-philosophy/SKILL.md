@@ -1,11 +1,11 @@
 ---
-name: plan-tdd
-description: "Test-Driven Development constraints for all implementation work. Must be loaded before writing any production code."
+name: tdd-philosophy
+description: "Test-Driven Development discipline for all implementation phases. Must be loaded before writing any production code."
 ---
 
-# Skill: plan-tdd
+# Skill: tdd-philosophy
 
-**Role:** Mandatory constraint for all implementation tasks. Loaded before any production code is written.
+**Role:** Mandatory discipline for all implementation tasks (planning, building, refactoring). Loaded before any production code is written.
 
 ---
 

@@ -18,11 +18,11 @@ const TaskSchema = z.object({
   checked: z.boolean(),
   content: z.string().min(1, "Task content cannot be empty"),
   isCurrent: z.boolean().optional(),
-  citation: z
+    citation: z
     .string()
     .regex(
-      /^ref:[a-z]+-[a-z]+-[a-z]+$/,
-      "Citation must be ref:word-word-word format",
+      /^ref:[a-z0-9][-a-z0-9]*$/,
+      "Citation must be ref:word-word format",
     )
     .optional(),
 });
@@ -31,6 +31,7 @@ const PhaseSchema = z.object({
   number: z.number().int().positive(),
   name: z.string().min(1, "Phase name cannot be empty"),
   status: PhaseStatus,
+  tag: z.enum(["search", "implementation", "testing", "refactor", "documentation"]),
   tasks: z.array(TaskSchema).min(1, "Phase must have at least one task"),
 });
 
@@ -74,6 +75,7 @@ interface ExtractedParts {
     number: number;
     name: string;
     status: string;
+    tag?: string;
     tasks: Array<{
       id: string;
       checked: boolean;
@@ -113,9 +115,7 @@ function extractMarkdownParts(content: string): ExtractedParts {
 
   // Extract goal (no validation - just extraction)
   // Use \r?\n so CRLF plans match; allow blank lines after the heading; body may omit ## Goal if YAML has goal
-  const goalSectionMatch = text.match(
-    /## Goal\n(?:\n)*\s*([^\n#]+)/,
-  );
+  const goalSectionMatch = text.match(/## Goal\n(?:\n)*\s*([^\n#]+)/);
   let goal = goalSectionMatch?.[1]?.trim() || null;
   if (
     !goal &&
@@ -129,18 +129,19 @@ function extractMarkdownParts(content: string): ExtractedParts {
   // Extract phases (no validation - just extraction)
   const phases: ExtractedParts["phases"] = [];
   const phaseRegex =
-    /## Phase (\d+): ([^[]+)\[([^\]]+)\]\n([\s\S]*?)(?=## Phase \d+:|## Notes|## Blockers|$)/g;
+    /## Phase (\d+): ([^[]+)\[([^\]]+)\](\s*#\w+)?\s*\n([\s\S]*?)(?=## Phase \d+:|## Notes|## Blockers|$)/g;
 
   let phaseMatch = phaseRegex.exec(text);
   while (phaseMatch !== null) {
     const phaseNum = parseInt(phaseMatch[1], 10);
     const phaseName = phaseMatch[2].trim();
     const phaseStatus = phaseMatch[3].trim();
-    const phaseContent = phaseMatch[4];
+    const phaseTag = phaseMatch[4]?.trim().replace(/^#/, "");
+    const phaseContent = phaseMatch[5];
 
     const tasks: ExtractedParts["phases"][0]["tasks"] = [];
     const taskRegex =
-      /- \[([ x])\] (\*\*)?(\d+\.\d+) ([^←\n]+)(← CURRENT)?.*?(`ref:[a-z]+-[a-z]+-[a-z]+`)?/g;
+      /- \[([ x])\] (\*\*)?(\d+\.\d+) ([^←\n]+)(← CURRENT)?.*?(`ref:[a-z0-9][-a-z0-9]*`)?/g;
 
     let taskMatch = taskRegex.exec(phaseContent);
     while (taskMatch !== null) {
@@ -159,9 +160,10 @@ function extractMarkdownParts(content: string): ExtractedParts {
       number: phaseNum,
       name: phaseName,
       status: phaseStatus,
+      tag: phaseTag,
       tasks,
     });
-    phaseMatch = phaseRegex.exec(content);
+    phaseMatch = phaseRegex.exec(text);
   }
 
   return { frontmatter, goal, phases };
@@ -208,7 +210,7 @@ function formatZodErrors(error: z.ZodError): string {
  * - Law 5 (Intentional Naming): Self-documenting function names
  */
 function parsePlanMarkdown(content: string): ParseResult {
-  const skillHint = "Load skill('plan-protocol') for the full format spec.";
+  const skillHint = "Load skill('plan-protocol') for format spec and skill('tdd-philosophy') for TDD discipline.";
 
   // Guard: Content must be string (Law 1: Early Exit, Law 2: Parse at boundary)
   if (typeof content !== "string") {
@@ -272,6 +274,33 @@ function parsePlanMarkdown(content: string): ParseResult {
     warnings.push(
       "Multiple phases marked IN PROGRESS. Consider focusing on one phase at a time.",
     );
+  }
+
+  // TDD validation for #implementation and #refactor phases
+  const tddKeywords = ["red", "green", "failing test", "verify red", "verify green", "test(", "describe(", "it("];
+
+  for (const phase of result.data.phases) {
+    if (phase.tag === "implementation" || phase.tag === "refactor") {
+      const tddWarnings: string[] = [];
+      
+      for (const task of phase.tasks) {
+        const contentLower = task.content.toLowerCase();
+        const hasKeyword = tddKeywords.some(kw => contentLower.includes(kw.toLowerCase()));
+        const hasCodeBlock = contentLower.includes("```");
+        
+        if (!hasKeyword && !hasCodeBlock) {
+          tddWarnings.push(`Task ${task.id} lacks TDD indicators`);
+        }
+      }
+      
+      if (tddWarnings.length > 0) {
+        warnings.push(
+          `Phase '${phase.number}: ${phase.name}' (#${phase.tag}) has tasks without TDD steps. ` +
+          `Expected: RED/GREEN cycle with test code or keywords. ` +
+          `Issues: ${tddWarnings.join("; ")}`
+        );
+      }
+    }
   }
 
   return { ok: true, data: result.data, warnings };

@@ -7,20 +7,6 @@ description: Guidelines for creating and managing implementation plans with cita
 
 > **Load this skill** when creating or updating implementation plans.
 
-## TL;DR Checklist
-
-When creating or updating a plan, ensure:
-
-- [ ] YAML frontmatter with `status`, `phase`, `updated`
-- [ ] `## Goal` section (one sentence)
-- [ ] `## Context & Decisions` table with citations (`ref:delegation-id`)
-- [ ] Phases with status markers: `[COMPLETE]`, `[IN PROGRESS]`, `[PENDING]`
-- [ ] Tasks with hierarchical numbering (1.1, 1.2, 2.1)
-- [ ] Only ONE task marked `← CURRENT`
-- [ ] Citations for all research-based decisions
-
----
-
 ## When to Use
 
 1. Starting a multi-step implementation
@@ -38,8 +24,6 @@ When creating or updating a plan, ensure:
 ---
 
 ## Plan Format
-
-Use `plan_save` with this exact markdown format:
 
 ```markdown
 ---
@@ -60,18 +44,18 @@ ONE_SENTENCE_DESCRIBING_OUTCOME
 | -------- | --------- | ------------------- |
 | CHOICE   | WHY       | `ref:DELEGATION_ID` |
 
-## Phase 1: NAME [STATUS_MARKER]
+## Phase 1: Research [COMPLETE] #search
 
 - [x] 1.1 Completed task
 - [x] 1.2 Another completed task → `ref:DELEGATION_ID`
 
-## Phase 2: NAME [IN PROGRESS]
+## Phase 2: Implementation [IN PROGRESS] #implementation
 
 - [x] 2.1 Completed task
 - [ ] **2.2 Current task** ← CURRENT
 - [ ] 2.3 Pending task
 
-## Phase 3: NAME [PENDING]
+## Phase 3: Testing [PENDING] #testing
 
 - [ ] 3.1 Future task
 - [ ] 3.2 Another future task
@@ -97,8 +81,6 @@ ONE_SENTENCE_DESCRIBING_OUTCOME
 | `[IN PROGRESS]` | Currently being worked on |
 | `[COMPLETE]`    | Finished successfully     |
 | `[BLOCKED]`     | Waiting on dependencies   |
-
----
 
 ## State Machine
 
@@ -164,9 +146,9 @@ Citations reference delegation research. The flow is:
 
 ## Examples
 
-### ✅ CORRECT: Well-formed plan with TDD
+### ✅ CORRECT: Well-formed plan
 
-````markdown
+```markdown
 ---
 status: in-progress
 phase: 2
@@ -186,56 +168,26 @@ Add JWT authentication with refresh token support
 | Use bcrypt (12 rounds)  | Industry standard, balance of security/speed | `ref:swift-amber-falcon` |
 | JWT with refresh tokens | Stateless auth, mobile-friendly              | `ref:calm-jade-owl`      |
 
-## Phase 1: Research [COMPLETE]
+## Phase 1: Research [COMPLETE] #search
 
 - [x] 1.1 Research auth patterns → `ref:swift-amber-falcon`
 - [x] 1.2 Evaluate token strategies → `ref:calm-jade-owl`
 
-## Phase 2: Implementation [IN PROGRESS]
+## Phase 2: Implementation [IN PROGRESS] #implementation
 
-### Task 2.1: Add password hashing
+- [x] 2.1 Set up bcrypt dependency
+- [ ] **2.2 Add password hashing** ← CURRENT
+- [ ] 2.3 Add JWT token generation
 
-- [ ] **Step 1: Write failing test**
-
-  ```typescript
-  test("hashPassword generates valid bcrypt hash", async () => {
-    const hash = await hashPassword("password123");
-    expect(hash).toMatch(/^\$2[aby]\$/);
-  });
-  ```
-
-  Run: `npm test hash.test.ts`
-  Expected: FAIL - hashPassword is not defined
-
-- [ ] **Step 2: Verify RED**
-      Confirm test fails for expected reason (function missing, not typo)
-
-- [ ] **Step 3: Implement minimal code**
-
-  ```typescript
-  async function hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, 12);
-  }
-  ```
-
-- [ ] **Step 4: Verify GREEN**
-      Run: `npm test hash.test.ts`
-      Expected: PASS, no regressions
-
-- [ ] **Step 5: Commit**
-  ```bash
-  git add src/auth/hash.ts tests/auth/hash.test.ts
-  git commit -m "feat: add password hashing with bcrypt"
-  ```
-
-## Phase 3: Testing [PENDING]
+## Phase 3: Testing [PENDING] #testing
 
 - [ ] 3.1 Integration tests
+- [ ] 3.2 Security review
 
 ## Notes
 
 - 2026-01-02: Chose bcrypt over argon2 for broader library support `ref:swift-amber-falcon`
-````
+```
 
 ### ❌ WRONG: Missing frontmatter
 
@@ -252,7 +204,7 @@ Add authentication
 ### ❌ WRONG: Multiple CURRENT markers
 
 ```markdown
-## Phase 2: Implementation [IN PROGRESS]
+## Phase 2: Implementation [IN PROGRESS] #implementation
 
 - [ ] **2.1 Task one** ← CURRENT
 - [ ] **2.2 Task two** ← CURRENT
@@ -275,7 +227,7 @@ Add authentication
 ### ❌ WRONG: Invalid phase status
 
 ```markdown
-## Phase 1: Research [DONE]
+## Phase 1: Research [DONE] #search
 ```
 
 **Error:** Use `[COMPLETE]`, not `[DONE]`. Valid markers: `[PENDING]`, `[IN PROGRESS]`, `[COMPLETE]`, `[BLOCKED]`.
@@ -284,37 +236,13 @@ Add authentication
 
 ## Troubleshooting
 
-| Error Message              | Fix                                                                                                    |
-| -------------------------- | ------------------------------------------------------------------------------------------------------ |
-| "Missing frontmatter"      | Add `---\nstatus: in-progress\nphase: 1\nupdated: 2026-01-02\n---` at top                              |
-| "Multiple CURRENT markers" | Remove `← CURRENT` from all but the active task                                                        |
-| "Invalid citation format"  | Use `ref:delegation-id` format (e.g., `ref:swift-amber-falcon`)                                        |
-| "Missing goal"             | Add `## Goal` section with one-sentence description                                                    |
-| "Empty phase"              | Add at least one task to each phase                                                                    |
-| "Invalid phase status"     | Use `[PENDING]`, `[IN PROGRESS]`, `[COMPLETE]`, or `[BLOCKED]`                                         |
-| "Missing TDD steps"        | Add RED/GREEN cycle to all implementation tasks: write test → verify fails → implement → verify passes |
+| Error Message              | Fix                                                                       |
+| -------------------------- | ------------------------------------------------------------------------- |
+| "Missing frontmatter"      | Add `---\nstatus: in-progress\nphase: 1\nupdated: 2026-01-02\n---` at top |
+| "Multiple CURRENT markers" | Remove `← CURRENT` from all but the active task                           |
+| "Invalid citation format"  | Use `ref:delegation-id` format (e.g., `ref:swift-amber-falcon`)           |
+| "Missing goal"             | Add `## Goal` section with one-sentence description                       |
+| "Empty phase"              | Add at least one task to each phase                                       |
+| "Invalid phase status"     | Use `[PENDING]`, `[IN PROGRESS]`, `[COMPLETE]`, or `[BLOCKED]`            |
 
 ---
-
-## Before Saving Checklist
-
-Before calling `plan_save`, verify:
-
-- [ ] **Frontmatter:** Has status, phase, and updated date?
-- [ ] **Goal:** Is there a clear, one-sentence goal?
-- [ ] **Citations:** Are all research-based decisions cited with `ref:id`?
-- [ ] **Single CURRENT:** Is exactly one task marked `← CURRENT`?
-- [ ] **Valid markers:** Do all phases use valid status markers?
-- [ ] **Hierarchical IDs:** Are tasks numbered correctly (1.1, 1.2, 2.1)?
-
----
-
-### TDD Checklist (for implementation tasks)
-
-Before saving a plan with implementation tasks, verify:
-
-- [ ] **Failing test first:** Is there a test that will fail before implementation?
-- [ ] **RED verified:** Will the test be run and confirmed to fail?
-- [ ] **Minimal implementation:** Is the implementation step minimal (just enough to pass)?
-- [ ] **GREEN verified:** Will the test be run and confirmed to pass?
-- [ ] **No untested code:** Does any implementation step lack a corresponding test?
