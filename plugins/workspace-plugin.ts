@@ -415,7 +415,13 @@ export const WorkspacePlugin: Plugin = async (ctx) => {
         async execute(args, toolCtx) {
           // Guard 1: Session required (Law 1: Early Exit)
           if (!toolCtx?.sessionID) {
-            return "❌ plan_save requires sessionID. This is a system error.";
+            return {
+              output: "❌ plan_save requires sessionID. This is a system error.",
+              metadata: {
+                ok: false,
+                code: "PLAN_SAVE_SESSION_REQUIRED",
+              },
+            };
           }
 
           const rootID = await getRootSessionID(toolCtx.sessionID);
@@ -425,19 +431,52 @@ export const WorkspacePlugin: Plugin = async (ctx) => {
           // Guard 2: Parse and validate at boundary (Law 2: Parse Don't Validate)
           const result = parsePlanMarkdown(args.content);
           if (!result.ok) {
-            return formatParseError(result.error, result.hint);
+            return {
+              output: formatParseError(result.error, result.hint),
+              metadata: {
+                ok: false,
+                code: "PLAN_SAVE_VALIDATION_FAILED",
+                hint: result.hint,
+              },
+            };
           }
 
           // Happy path: save
           const planPath = path.resolve(sessionDir, "plan.md");
           await fs.writeFile(planPath, args.content, "utf8");
           const warningCount = result.warnings?.length ?? 0;
-          const warningText =
+          const warningLines = result.warnings
+            ?.map((warning) => `- ${warning}`)
+            .join("\n");
+          const nextActionReminder = `<system-reminder>
+Next action:
+1. Use the "plan_read" tool to read the latest plan.
+2. Use the "delegate" tool to request review from the "reviewer" agent, including the full plan content${warningCount > 0 ? " and warnings" : ""}.
+3. In the "delegate" prompt, request Overall Assessment (APPROVE | REQUEST_CHANGES | NEEDS_DISCUSSION)${warningCount > 0 ? " and concrete suggestions for each warning" : ""}.
+</system-reminder>`;
+          const outputText =
             warningCount > 0
-              ? ` (${warningCount} warnings: ${result.warnings?.join(", ")})`
-              : "";
+              ? `Plan persisted with warnings.
+Plan path: ${planPath}
 
-          return `Plan saved to ${planPath}.${warningText}`;
+Warnings:
+${warningLines}
+
+${nextActionReminder}`
+              : `Plan persisted successfully.
+Plan path: ${planPath}
+
+${nextActionReminder}`;
+
+          return {
+            output: outputText,
+            metadata: {
+              ok: true,
+              code: "PLAN_SAVE_SUCCESS",
+              planPath,
+              warningCount,
+            },
+          };
         },
       }),
 
@@ -489,23 +528,11 @@ Today is ${today}. When searching for documentation, APIs, or external resources
       activeCoderCalls.set(input.callID, { startTime: Date.now() });
     },
 
-    // Trigger review reminder when plan_save or all coder tasks complete
+    // Trigger review reminder when all coder tasks complete
     "tool.execute.after": async (
       input: { tool: string; sessionID: string; callID: string },
       output: { title: string; output: string; metadata: unknown },
     ) => {
-      // Plan save triggers reviewer delegation reminder
-      if (input.tool === "plan_save") {
-        output.output += `\n\n<system-reminder>
-Plan saved successfully. You MUST now delegate to the reviewer:
-1. Use the \`delegate\` tool to send the plan to the \`reviewer\` agent
-2. The reviewer will load \`plan-review\` and \`code-philosophy\` skills
-3. Use \`plan_read\` to get the plan content for the delegation prompt
-4. This is NON-BLOCKING - continue work while review runs in background
-</system-reminder>`;
-        return;
-      }
-
       // Coder task completion tracking
       if (!input.callID) return;
       if (!activeCoderCalls.has(input.callID)) return;

@@ -1,6 +1,9 @@
 ---
 name: plan-forge
 description: Unified runtime workflow for plan creation, validation, and plan_save execution
+required:
+  - plan-protocol
+  - tdd-philosophy
 ---
 
 # Skill: plan-forge
@@ -8,14 +11,15 @@ description: Unified runtime workflow for plan creation, validation, and plan_sa
 ## TL;DR
 
 Use this skill as the single runtime entry point for creating or updating implementation plans.
-`plan-forge` orchestrates structural rules (`plan-protocol`) and TDD discipline (`plan-tdd`) so planning and `plan_save` behavior stay consistent.
+`plan-forge` orchestrates structural rules (`plan-protocol`) and TDD discipline (`tdd-philosophy`) so planning and `plan_save` behavior stay consistent.
+This skill is fail-closed: if any required skill is unavailable, stop immediately.
 
 ## Workflow
 
 Follow this sequence:
 
-1. Load `plan-protocol`.
-2. Load `plan-tdd`.
+1. Verify required skills are loaded: `plan-protocol`, `tdd-philosophy`.
+2. If any required skill is missing or fails to load, STOP (do not create/update the plan; do not call `plan_save`).
 3. Create or update the plan (every phase header must include a valid phase tag).
 4. Apply TDD discipline to `#implementation` and `#refactor` tasks.
 5. Call `plan_save`.
@@ -63,6 +67,7 @@ These are the minimum structural constraints inherited from `plan-protocol`:
 
 Before calling `plan_save`, verify all of the following:
 
+- [ ] Required skills are loaded: `plan-protocol`, `tdd-philosophy`.
 - [ ] Frontmatter includes all required fields: `status`, `phase`, `updated`.
 - [ ] `## Goal` exists and states a clear one-sentence outcome.
 - [ ] Every research-based decision is cited with `ref:id` (for example, `ref:swift-amber-falcon`).
