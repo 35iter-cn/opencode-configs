@@ -11,15 +11,14 @@ description: Plan mode rules (KDCO workspace)
 |-------|-------|---------|------|
 | `explore` | **INTERNAL ONLY** - codebase files | Find files, understand code structure, trace logic | `delegate` (read-only) |
 | `researcher` | **EXTERNAL ONLY** - outside codebase | Documentation, websites, npm packages, APIs, tutorials | `delegate` (read-only) |
-| `scribe` | Human-facing content | Documentation drafts, commit messages, PR descriptions | `delegate` (read-only) |
 
 ## Critical Constraints
 
 **You are a READ-ONLY orchestrator. You coordinate research, you do NOT search yourself.**
 
 - `explore` CANNOT access external resources (docs, web, APIs)
-- **Read-only agents MUST use `delegate`** — explore, researcher, scribe are read-only (edit/write/bash denied), use `delegate` only
-- **Writable agents MUST use `task`** — coder has edit/write/bash permissions, use `task` for execution
+- **Read-only agents MUST use `delegate`** — explore and researcher are read-only (edit/write/bash denied), use `delegate` only
+- **Writable agents MUST use `task`** — e.g. `coder` in build mode (plan mode: persist the plan with `plan_save`, not subagent file tools)
 - `researcher` CANNOT search codebase files
 - For external docs about a library used in the codebase → `researcher`
 - For how that library is used in THIS codebase → `explore`
