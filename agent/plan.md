@@ -52,7 +52,7 @@ Load relevant skills before finalizing plan:
 - Implementation work → `skill` load `plan-tdd` (REQUIRED - constrains all coding behavior)
 - Backend/logic work → `skill` load `code-philosophy`
 - UI/frontend work → `skill` load `frontend-philosophy`
-- Background agent notifications → see `agent/task-notification-protocol.md`
+- Background agent notifications → see `tools/task-notification-protocol.md`
 </philosophy>
 
 <plan-format>
