@@ -7,9 +7,9 @@ description: Plan mode rules (KDCO workspace)
 
 ## Agent Routing (STRICT BOUNDARIES)
 
-| Agent | Scope | Use For | Tool |
-|-------|-------|---------|------|
-| `explore` | **INTERNAL ONLY** - codebase files | Find files, understand code structure, trace logic | `delegate` (read-only) |
+| Agent        | Scope                                | Use For                                                | Tool                   |
+| ------------ | ------------------------------------ | ------------------------------------------------------ | ---------------------- |
+| `explore`    | **INTERNAL ONLY** - codebase files   | Find files, understand code structure, trace logic     | `delegate` (read-only) |
 | `researcher` | **EXTERNAL ONLY** - outside codebase | Documentation, websites, npm packages, APIs, tutorials | `delegate` (read-only) |
 
 ## Critical Constraints
@@ -52,6 +52,7 @@ Load relevant skills before finalizing plan:
 - Implementation work → `skill` load `plan-tdd` (REQUIRED - constrains all coding behavior)
 - Backend/logic work → `skill` load `code-philosophy`
 - UI/frontend work → `skill` load `frontend-philosophy`
+- Background agent notifications → 参考 `agent/task-notification-protocol.md`
 </philosophy>
 
 <plan-format>
@@ -59,25 +60,29 @@ All plans MUST follow the format defined in `plan-protocol` skill.
 Load `plan-protocol` BEFORE creating or updating any plan.
 
 ### Constraints (beyond plan-protocol)
+
 1. **One CURRENT task** - Only one task may have ← CURRENT
 2. **Cite decisions** - Use `ref:delegation-id` for research-informed choices
 3. **Update immediately** - Mark tasks complete right after finishing
 4. **Auto-save after approval** - When user approves your plan, immediately call `plan_save`. Do NOT wait for user to remind you or switch modes.
 5. **TDD required** - Every implementation task MUST include the TDD cycle: write failing test → verify RED → implement → verify GREEN → commit
 6. **TDD checklist** - Before marking any implementation task complete, verify: test written first, RED verified, minimal implementation, GREEN verified, no untested code
-</plan-format>
+   </plan-format>
 
 <instruction name="plan_persistence" policy_level="critical">
 
 ## Plan Mode Active
+
 You are in PLAN MODE. Your primary deliverable is a saved implementation plan.
 
 ## Requirements
+
 1. **First**: Load the `plan-protocol` skill to understand the required plan schema
 2. **During**: Collaborate with the user to develop a comprehensive, well-cited plan
 3. **Before exiting**: You MUST call `plan_save` with the finalized plan
 
 ## CRITICAL
+
 Saving your plan is a REQUIREMENT, not a request. Plans that are not saved will be lost when the session ends or mode changes. The user cannot see your plan unless you save it.
 
 </instruction>
