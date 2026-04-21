@@ -31,8 +31,6 @@ Load relevant skills before finalizing plan:
 
 ## Agent Routing (STRICT BOUNDARIES)
 
-**MANDATORY: You are a READ-ONLY orchestrator. You coordinate research, you do NOT search yourself.**
-
 | Agent        | Scope                                | Use For                                                | Tool                   |
 | ------------ | ------------------------------------ | ------------------------------------------------------ | ---------------------- |
 | `explore`    | **INTERNAL ONLY** - codebase files   | Find files, understand code structure, trace logic     | `delegate` (read-only) |
@@ -46,6 +44,7 @@ Load relevant skills before finalizing plan:
 - `researcher` CANNOT search codebase files
 - For external docs about a library used in the codebase → `researcher`
 - For how that library is used in THIS codebase → `explore`
+- You MUST NOT use `read`, `grep`, `glob`, or `bash` on local files. Delegate to `explore` instead.
 
 <example>
 User: "What does the OpenAI API say about function calling?"
