@@ -2,309 +2,16 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { type Plugin, tool } from "@opencode-ai/plugin";
-import { z } from "zod";
 import { getProjectId } from "./kdco-primitives/get-project-id";
+import { parsePlanMarkdown } from "./plan-markdown";
 
-// ==========================================
-// PLAN SCHEMA & VALIDATION
-// ==========================================
-
-const PhaseStatus = z.enum(["PENDING", "IN PROGRESS", "COMPLETE", "BLOCKED"]);
-
-const TaskSchema = z.object({
-  id: z
-    .string()
-    .regex(/^\d+\.\d+$/, "Task ID must be hierarchical (e.g., '2.1')"),
-  checked: z.boolean(),
-  content: z.string().min(1, "Task content cannot be empty"),
-  isCurrent: z.boolean().optional(),
-    citation: z
-    .string()
-    .regex(
-      /^ref:[a-z0-9][-a-z0-9]*$/,
-      "Citation must be ref:word-word format",
-    )
-    .optional(),
-});
-
-const PhaseSchema = z.object({
-  number: z.number().int().positive(),
-  name: z.string().min(1, "Phase name cannot be empty"),
-  status: PhaseStatus,
-  tag: z.enum(["search", "implementation", "testing", "refactor", "documentation"]),
-  tasks: z.array(TaskSchema).min(1, "Phase must have at least one task"),
-});
-
-const FrontmatterSchema = z.object({
-  status: z.enum(["not-started", "in-progress", "complete", "blocked"]),
-  phase: z.number().int().positive(),
-  updated: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
-});
-
-const PlanSchema = z.object({
-  frontmatter: FrontmatterSchema,
-  goal: z.string().min(10, "Goal must be at least 10 characters"),
-  context: z
-    .array(
-      z.object({
-        decision: z.string(),
-        rationale: z.string(),
-        source: z.string(),
-      }),
-    )
-    .optional(),
-  phases: z.array(PhaseSchema).min(1, "Plan must have at least one phase"),
-});
-
-/**
- * Result type for plan parsing - either valid data or descriptive error.
- * Follows Law 2: Parse Don't Validate - boundary parsing returns trusted types.
- */
-type ParseResult =
-  | { ok: true; data: z.infer<typeof PlanSchema>; warnings: string[] }
-  | { ok: false; error: string; hint: string };
-
-/**
- * Raw extracted parts from markdown (no validation).
- * Used as intermediate type before Zod validation.
- */
-interface ExtractedParts {
-  frontmatter: Record<string, string | number> | null;
-  goal: string | null;
-  phases: Array<{
-    number: number;
-    name: string;
-    status: string;
-    tag?: string;
-    tasks: Array<{
-      id: string;
-      checked: boolean;
-      content: string;
-      isCurrent: boolean;
-      citation?: string;
-    }>;
-  }>;
-}
-
-/**
- * Extract all parts from markdown without validation (Law 2: Parse Don't Validate).
- * Returns raw extracted data - validation happens in parsePlanMarkdown.
- * This is a pure extraction function (Law 3: Purity).
- */
-function extractMarkdownParts(content: string): ExtractedParts {
-  // Normalize newlines so CRLF (and lone CR) plans parse the same as LF — several
-  // regexes below assume \n-only (frontmatter fence, phase headers, task lines).
-  const text = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-
-  // Extract frontmatter (no validation - just extraction)
-  const fmMatch = text.match(/^---\n([\s\S]*?)\n---/);
-  let frontmatter: Record<string, string | number> | null = null;
-
-  if (fmMatch) {
-    frontmatter = {};
-    const fmLines = fmMatch[1].split("\n");
-    for (const line of fmLines) {
-      const [key, ...valueParts] = line.split(":");
-      if (key && valueParts.length > 0) {
-        const value = valueParts.join(":").trim();
-        frontmatter[key.trim()] =
-          key.trim() === "phase" ? parseInt(value, 10) : value;
-      }
-    }
-  }
-
-  // Extract goal (no validation - just extraction)
-  // Use \r?\n so CRLF plans match; allow blank lines after the heading; body may omit ## Goal if YAML has goal
-  const goalSectionMatch = text.match(/## Goal\n(?:\n)*\s*([^\n#]+)/);
-  let goal = goalSectionMatch?.[1]?.trim() || null;
-  if (
-    !goal &&
-    frontmatter &&
-    typeof frontmatter.goal === "string" &&
-    frontmatter.goal.trim().length > 0
-  ) {
-    goal = frontmatter.goal.trim();
-  }
-
-  // Extract phases (no validation - just extraction)
-  const phases: ExtractedParts["phases"] = [];
-  const phaseRegex =
-    /## Phase (\d+): ([^[]+)\[([^\]]+)\](\s*#\w+)?\s*\n([\s\S]*?)(?=## Phase \d+:|## Notes|## Blockers|$)/g;
-
-  let phaseMatch = phaseRegex.exec(text);
-  while (phaseMatch !== null) {
-    const phaseNum = parseInt(phaseMatch[1], 10);
-    const phaseName = phaseMatch[2].trim();
-    const phaseStatus = phaseMatch[3].trim();
-    const phaseTag = phaseMatch[4]?.trim().replace(/^#/, "");
-    const phaseContent = phaseMatch[5];
-
-    const tasks: ExtractedParts["phases"][0]["tasks"] = [];
-    const taskRegex =
-      /- \[([ x])\] (\*\*)?(\d+\.\d+) ([^←\n]+)(← CURRENT)?.*?(`ref:[a-z0-9][-a-z0-9]*`)?/g;
-
-    let taskMatch = taskRegex.exec(phaseContent);
-    while (taskMatch !== null) {
-      tasks.push({
-        id: taskMatch[3],
-        checked: taskMatch[1] === "x",
-        content: taskMatch[4].trim().replace(/\*\*/g, ""),
-        isCurrent: !!taskMatch[5],
-        citation: taskMatch[6]?.replace(/`/g, ""),
-      });
-      taskMatch = taskRegex.exec(phaseContent);
-    }
-
-    // Include phase even if no tasks (let Zod validate)
-    phases.push({
-      number: phaseNum,
-      name: phaseName,
-      status: phaseStatus,
-      tag: phaseTag,
-      tasks,
-    });
-    phaseMatch = phaseRegex.exec(text);
-  }
-
-  return { frontmatter, goal, phases };
-}
-
-/**
- * Format Zod validation errors into human-readable messages (Law 4: Fail Loud).
- * Shows ALL errors at once with clear paths.
- */
-function formatZodErrors(error: z.ZodError): string {
-  const errorMessages: string[] = [];
-
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? `[${issue.path.join(".")}]` : "[root]";
-
-    // Provide helpful context based on error type
-    let message = issue.message;
-    if (issue.code === "invalid_value") {
-      const values = (issue as { values?: unknown[] }).values;
-      const input = (issue as { input?: unknown }).input;
-      message = `Invalid value "${input}". Expected: ${values?.join(" | ") ?? "valid value"}`;
-    } else if (
-      issue.code === "invalid_type" &&
-      (issue as { input?: unknown }).input === null
-    ) {
-      message = "Required field missing";
-    }
-
-    errorMessages.push(`${path}: ${message}`);
-  }
-
-  return errorMessages.join("\n");
-}
-
-/**
- * Parse and validate markdown plan in a single boundary operation.
- * Returns ParseResult: either trusted data or descriptive error with hint.
- *
- * Follows all 5 Laws:
- * - Law 1 (Early Exit): Guard at top for empty content
- * - Law 2 (Parse Don't Validate): Extract all → validate once at end
- * - Law 3 (Purity): No side effects, same input = same output
- * - Law 4 (Fail Loud): Shows ALL validation errors with clear paths
- * - Law 5 (Intentional Naming): Self-documenting function names
- */
-function parsePlanMarkdown(content: string): ParseResult {
-  const skillHint = "Load skill('plan-protocol') for format spec and skill('tdd-philosophy') for TDD discipline.";
-
-  // Guard: Content must be string (Law 1: Early Exit, Law 2: Parse at boundary)
-  if (typeof content !== "string") {
-    return {
-      ok: false,
-      error: `Expected markdown string, received ${typeof content}`,
-      hint: skillHint,
-    };
-  }
-
-  // Guard: Empty content (Law 1: Early Exit)
-  if (!content.trim()) {
-    return {
-      ok: false,
-      error: "Empty content provided",
-      hint: skillHint,
-    };
-  }
-
-  // Extract all parts without validation (Law 2: Parse Don't Validate)
-  const parts = extractMarkdownParts(content);
-
-  // Build candidate object for validation
-  const candidate = {
-    frontmatter: parts.frontmatter,
-    goal: parts.goal,
-    phases: parts.phases,
-  };
-
-  // Single validation point: Zod schema (Law 2: Parse Don't Validate)
-  const result = PlanSchema.safeParse(candidate);
-  if (!result.success) {
-    return {
-      ok: false,
-      error: formatZodErrors(result.error),
-      hint: skillHint,
-    };
-  }
-
-  // Business rules validation (still part of single boundary)
-  const warnings: string[] = [];
-  let currentCount = 0;
-  let inProgressCount = 0;
-
-  for (const phase of result.data.phases) {
-    if (phase.status === "IN PROGRESS") inProgressCount++;
-    for (const task of phase.tasks) {
-      if (task.isCurrent) currentCount++;
-    }
-  }
-
-  if (currentCount > 1) {
-    return {
-      ok: false,
-      error: `Multiple tasks marked ← CURRENT (found ${currentCount}). Only one task may be current.`,
-      hint: skillHint,
-    };
-  }
-
-  if (inProgressCount > 1) {
-    warnings.push(
-      "Multiple phases marked IN PROGRESS. Consider focusing on one phase at a time.",
-    );
-  }
-
-  // TDD validation for #implementation and #refactor phases
-  const tddKeywords = ["red", "green", "failing test", "verify red", "verify green", "test(", "describe(", "it("];
-
-  for (const phase of result.data.phases) {
-    if (phase.tag === "implementation" || phase.tag === "refactor") {
-      const tddWarnings: string[] = [];
-      
-      for (const task of phase.tasks) {
-        const contentLower = task.content.toLowerCase();
-        const hasKeyword = tddKeywords.some(kw => contentLower.includes(kw.toLowerCase()));
-        const hasCodeBlock = contentLower.includes("```");
-        
-        if (!hasKeyword && !hasCodeBlock) {
-          tddWarnings.push(`Task ${task.id} lacks TDD indicators`);
-        }
-      }
-      
-      if (tddWarnings.length > 0) {
-        warnings.push(
-          `Phase '${phase.number}: ${phase.name}' (#${phase.tag}) has tasks without TDD steps. ` +
-          `Expected: RED/GREEN cycle with test code or keywords. ` +
-          `Issues: ${tddWarnings.join("; ")}`
-        );
-      }
-    }
-  }
-
-  return { ok: true, data: result.data, warnings };
-}
+export {
+  extractMarkdownParts,
+  notesSectionIsValid,
+  parsePlanMarkdown,
+  parseTaskLine,
+} from "./plan-markdown";
+export type { ExtractedParts, ParseResult } from "./plan-markdown";
 
 /**
  * Format parse error with actionable guidance (Law 4: Fail Loud).
@@ -416,7 +123,8 @@ export const WorkspacePlugin: Plugin = async (ctx) => {
           // Guard 1: Session required (Law 1: Early Exit)
           if (!toolCtx?.sessionID) {
             return {
-              output: "❌ plan_save requires sessionID. This is a system error.",
+              output:
+                "❌ plan_save requires sessionID. This is a system error.",
               metadata: {
                 ok: false,
                 code: "PLAN_SAVE_SESSION_REQUIRED",
@@ -449,22 +157,20 @@ export const WorkspacePlugin: Plugin = async (ctx) => {
             ?.map((warning) => `- ${warning}`)
             .join("\n");
           const nextActionReminder = `<system-reminder>
-Next action:
-1. Use the "plan_read" tool to read the latest plan.
-2. Use the "delegate" tool to request review from the "reviewer" agent, including the full plan content${warningCount > 0 ? " and warnings" : ""}.
-3. In the "delegate" prompt, request Overall Assessment (APPROVE | REQUEST_CHANGES | NEEDS_DISCUSSION)${warningCount > 0 ? " and concrete suggestions for each warning" : ""}.
+🔒 MANDATORY: Delegate to reviewer before showing user.
+   Use "delegate" → reviewer agent → request Overall Assessment${warningCount > 0 ? "; include all warnings in the prompt and request concrete suggestions for each" : ""}.
+   WAIT for result. DO NOT present plan first.
+🔓 OPTIONAL: If this plan was previously approved and edits are minor, review may be skipped.
 </system-reminder>`;
           const outputText =
             warningCount > 0
-              ? `Plan persisted with warnings.
-Plan path: ${planPath}
+              ? `✅ Saved: ${planPath}
 
 Warnings:
 ${warningLines}
 
 ${nextActionReminder}`
-              : `Plan persisted successfully.
-Plan path: ${planPath}
+              : `✅ Saved: ${planPath}
 
 ${nextActionReminder}`;
 

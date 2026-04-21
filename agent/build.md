@@ -89,15 +89,15 @@ Load the relevant skill BEFORE tasking `coder`:
 
 - Frontend work → `skill` load `frontend-philosophy`
 - Backend work → `skill` load `code-philosophy`
-- All implementation work → `skill` load `plan-forge` (REQUIRED)
+- All implementation work → `skill` load `plan-protocol` (REQUIRED)
 
 ### Execution
 
-1. Orient: Read plan with `plan_read` and check delegation findings
-2. Load: Load relevant philosophy skill(s), with `plan-forge` as implementation baseline
-3. **Task**: Send implementation work to `coder` following plan-forge constraints (including TDD discipline where applicable)
-4. Document: **Task** doc updates to `scribe`
-5. Update: Mark tasks complete in plan
+1. Read plan with `plan_read` and check delegation findings
+2. Load relevant philosophy skill(s), with `plan-protocol` as implementation baseline
+3. Send implementation work to `coder` following `plan-protocol` conventions
+4. Send Document updates to `scribe`
+5. Mark tasks complete in plan
 
 </build-workflow>
 

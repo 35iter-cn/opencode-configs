@@ -1,248 +1,63 @@
 ---
 name: plan-protocol
-description: Guidelines for creating and managing implementation plans with citations
+description: Use when writing or updating plan markdown files and you need clear section-by-section writing conventions and meaning
 ---
 
 # Plan Protocol
 
-> **Load this skill** when creating or updating implementation plans.
+## Prerequisites (MANDATORY)
+
+Before writing or updating any plan, you **MUST**:
+
+1. **Load the `tdd-philosophy` skill** — This is non-negotiable. You cannot correctly judge TDD applicability without first understanding the RED/GREEN discipline.
+2. **Load the `plan-brainstorming` skill** — Constrains planning behavior. This is also mandatory.
+
+**Why mandatory?** The TDD skill provides the framework for identifying which tasks require `[RED]`/`[GREEN]` markers. Without loading it first, you will miss `#implementation` tags on tasks that need them.
 
 ## When to Use
 
-1. Starting a multi-step implementation
-2. After receiving a complex user request
-3. When tracking progress across phases
-4. After research that informs architectural decisions
+- Writing a new phase-based execution plan
+- Updating an existing plan with Goal / Phase / Task / Notes sections
+- Standardizing plan wording and section semantics across the team
 
-## When NOT to Use
+<system-reminder>
+- `./plan-template.spec.md` is the single non-negotiable source of truth and must be followed without exception.
+- After loading `tdd-philosophy`, you **MUST evaluate** every task against the TDD applicability checklist below. If any check passes, add the `#implementation` tag.
+- After loading `plan-brainstorming`, you **MUST apply** its brainstorming constraints before structuring any plan section.
 
-1. Simple one-off tasks → use built-in todos instead
-2. Pure research/exploration → use delegations only
-3. Quick fixes that don't need tracking
-4. Single-file changes with no dependencies
+</system-reminder>
 
----
+## TDD Applicability Checklist
 
-## Plan Format
+For each task in your plan, ask:
 
-```markdown
----
-status: STATUS
-phase: PHASE_NUMBER
-updated: YYYY-MM-DD
----
+- [ ] Does this task involve running tests to verify behavior?
+- [ ] Does this task involve modifying code and then confirming correctness?
+- [ ] Does this task have a clear pass/fail criterion that should be demonstrated by an automated test or explicit verification step?
 
-# Implementation Plan
+**If ANY answer is YES** → Mark the task with `#implementation` and ensure its steps include `[RED]` and `[GREEN]` markers.
 
-## Goal
+**Common mistakes to avoid:**
 
-ONE_SENTENCE_DESCRIBING_OUTCOME
+- ❌ "This is just config migration, not code — no TDD needed" — Configuration changes still have verification steps — e.g., asserting the app loads correctly with the new config — that fit RED/GREEN.
+- ❌ "I'll load TDD later if I need it" — Load it **before** planning. Judgment requires the skill.
 
-## Context & Decisions
+**When NOT to use `#implementation`:**
 
-| Decision | Rationale | Source              |
-| -------- | --------- | ------------------- |
-| CHOICE   | WHY       | `ref:DELEGATION_ID` |
+- Pure documentation updates (no behavior change to verify).
+- Administrative tasks (scheduling meetings, updating labels).
+- Research-only tasks that produce findings but don't modify production code or configuration.
 
-## Phase 1: Research [COMPLETE] #search
+## `#implementation` Rules
 
-- [x] 1.1 Completed task
-- [x] 1.2 Another completed task → `ref:DELEGATION_ID`
+Additional constraints apply only when `task.tag === "implementation"`:
 
-## Phase 2: Implementation [IN PROGRESS] #implementation
+- The task must contain at least one numbered step ending with `[RED]`.
+- The task must contain at least one numbered step ending with `[GREEN]`.
 
-- [x] 2.1 Completed task
-- [ ] **2.2 Current task** ← CURRENT
-- [ ] 2.3 Pending task
+## Validation Result Semantics
 
-## Phase 3: Testing [PENDING] #testing
-
-- [ ] 3.1 Future task
-- [ ] 3.2 Another future task
-
-## Notes
-
-- YYYY-MM-DD: Observation or decision `ref:DELEGATION_ID`
-```
-
-### Frontmatter Fields
-
-| Field     | Values                                              | Description          |
-| --------- | --------------------------------------------------- | -------------------- |
-| `status`  | `not-started`, `in-progress`, `complete`, `blocked` | Overall plan status  |
-| `phase`   | Number (1, 2, 3...)                                 | Current phase number |
-| `updated` | `YYYY-MM-DD`                                        | Last update date     |
-
-### Phase Status Markers
-
-| Marker          | Meaning                   |
-| --------------- | ------------------------- |
-| `[PENDING]`     | Not yet started           |
-| `[IN PROGRESS]` | Currently being worked on |
-| `[COMPLETE]`    | Finished successfully     |
-| `[BLOCKED]`     | Waiting on dependencies   |
-
-## State Machine
-
-### Plan Lifecycle
-
-```
-not-started → in-progress → complete
-                         ↘ blocked
-```
-
-### Phase Lifecycle
-
-```
-[PENDING] → [IN PROGRESS] → [COMPLETE]
-                         ↘ [BLOCKED]
-```
-
-### Task Lifecycle
-
-```
-[ ] unchecked → [x] checked
-```
-
-### Critical Rules
-
-1. **Only ONE phase** may be `[IN PROGRESS]` at any time
-2. **Only ONE task** may have `← CURRENT` marker at any time
-3. **Move `← CURRENT`** immediately when starting a new task
-4. **Mark tasks `[x]`** immediately after completing them
-
----
-
-## Citations & Delegations
-
-### Where Citations Come From
-
-Citations reference delegation research. The flow is:
-
-1. You delegate research: `delegate` to `researcher` or `explore`
-2. Delegation completes with a readable ID (e.g., `swift-amber-falcon`)
-3. You cite that research in the plan: `ref:swift-amber-falcon`
-
-### When to Cite
-
-| Situation                                | Action                           |
-| ---------------------------------------- | -------------------------------- |
-| Architectural decision based on research | Add to Context & Decisions table |
-| Task informed by research                | Append `→ ref:id` to task line   |
-| Implementation detail from research      | Inline citation in Notes         |
-
-### How to Find Delegation IDs
-
-- Use `delegation_list()` to see all delegations
-- Use `delegation_read("id")` to verify content before citing
-
-### ❌ NEVER
-
-- Make up delegation IDs
-- Cite without actually reading the delegation
-- Skip citations for research-based decisions
-
----
-
-## Examples
-
-### ✅ CORRECT: Well-formed plan
-
-```markdown
----
-status: in-progress
-phase: 2
-updated: 2026-01-02
----
-
-# Implementation Plan
-
-## Goal
-
-Add JWT authentication with refresh token support
-
-## Context & Decisions
-
-| Decision                | Rationale                                    | Source                   |
-| ----------------------- | -------------------------------------------- | ------------------------ |
-| Use bcrypt (12 rounds)  | Industry standard, balance of security/speed | `ref:swift-amber-falcon` |
-| JWT with refresh tokens | Stateless auth, mobile-friendly              | `ref:calm-jade-owl`      |
-
-## Phase 1: Research [COMPLETE] #search
-
-- [x] 1.1 Research auth patterns → `ref:swift-amber-falcon`
-- [x] 1.2 Evaluate token strategies → `ref:calm-jade-owl`
-
-## Phase 2: Implementation [IN PROGRESS] #implementation
-
-- [x] 2.1 Set up bcrypt dependency
-- [ ] **2.2 Add password hashing** ← CURRENT
-- [ ] 2.3 Add JWT token generation
-
-## Phase 3: Testing [PENDING] #testing
-
-- [ ] 3.1 Integration tests
-- [ ] 3.2 Security review
-
-## Notes
-
-- 2026-01-02: Chose bcrypt over argon2 for broader library support `ref:swift-amber-falcon`
-```
-
-### ❌ WRONG: Missing frontmatter
-
-```markdown
-# Implementation Plan
-
-## Goal
-
-Add authentication
-```
-
-**Error:** Plan must have YAML frontmatter with status, phase, updated.
-
-### ❌ WRONG: Multiple CURRENT markers
-
-```markdown
-## Phase 2: Implementation [IN PROGRESS] #implementation
-
-- [ ] **2.1 Task one** ← CURRENT
-- [ ] **2.2 Task two** ← CURRENT
-```
-
-**Error:** Only one task may be marked CURRENT.
-
-### ❌ WRONG: Decision without citation
-
-```markdown
-## Context & Decisions
-
-| Decision  | Rationale | Source |
-| --------- | --------- | ------ |
-| Use Redis | It's fast | -      |
-```
-
-**Error:** Decisions must cite research with `ref:delegation-id`.
-
-### ❌ WRONG: Invalid phase status
-
-```markdown
-## Phase 1: Research [DONE] #search
-```
-
-**Error:** Use `[COMPLETE]`, not `[DONE]`. Valid markers: `[PENDING]`, `[IN PROGRESS]`, `[COMPLETE]`, `[BLOCKED]`.
-
----
-
-## Troubleshooting
-
-| Error Message              | Fix                                                                       |
-| -------------------------- | ------------------------------------------------------------------------- |
-| "Missing frontmatter"      | Add `---\nstatus: in-progress\nphase: 1\nupdated: 2026-01-02\n---` at top |
-| "Multiple CURRENT markers" | Remove `← CURRENT` from all but the active task                           |
-| "Invalid citation format"  | Use `ref:delegation-id` format (e.g., `ref:swift-amber-falcon`)           |
-| "Missing goal"             | Add `## Goal` section with one-sentence description                       |
-| "Empty phase"              | Add at least one task to each phase                                       |
-| "Invalid phase status"     | Use `[PENDING]`, `[IN PROGRESS]`, `[COMPLETE]`, or `[BLOCKED]`            |
-
----
+- Any plan that fails required checks is rejected and returned for correction.
+- Structural/schema violations -> `ok: false` (hard fail, plan is returned).
+- `#implementation` TDD violations (missing RED/GREEN, misplaced markers) -> `ok: false` (hard fail, plan is returned).
+- Multiple `[IN PROGRESS]` phases -> warning only (does not block submission).
