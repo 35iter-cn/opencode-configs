@@ -1,0 +1,194 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json",
+  "agents": {
+    "sisyphus": {
+      "model": "kimi-for-coding/k2p6",
+      "variant": "low",
+      "fallback_models": ["kimi-for-coding/k2p6"]
+    },
+    "hephaestus": {
+      "model": "kimi-for-coding/k2p6",
+      "variant": "medium",
+      "fallback_models": ["kimi-for-coding/k2p6"]
+    },
+    "oracle": {
+      "model": "kimi-for-coding/k2p6",
+      "variant": "high",
+      "fallback_models": ["kimi-for-coding/k2p6"]
+    },
+    "explore": {
+      "model": "kimi-for-coding/k2p6",
+      "fallback_models": ["kimi-for-coding/k2p6"],
+      "variant": "low"
+    },
+    "multimodal-looker": {
+      "model": "kimi-for-coding/k2p6",
+      "variant": "medium",
+      "fallback_models": ["kimi-for-coding/k2p6"]
+    },
+    "prometheus": {
+      "model": "kimi-for-coding/k2p6",
+      "variant": "high",
+      "fallback_models": ["kimi-for-coding/k2p6"],
+      "prompt_append": "优先并行执行，充分利用 Hephaestus 的自主能力。"
+    },
+    "metis": {
+      "model": "kimi-for-coding/k2p6",
+      "variant": "high",
+      "fallback_models": ["kimi-for-coding/k2p6"]
+    },
+    "momus": {
+      "model": "kimi-for-coding/k2p6",
+      "variant": "xhigh",
+      "fallback_models": ["kimi-for-coding/k2p6"]
+    },
+    "atlas": {
+      "model": "kimi-for-coding/k2p6",
+      "fallback_models": ["kimi-for-coding/k2p6"],
+      "variant": "medium"
+    },
+    "sisyphus-junior": {
+      "model": "kimi-for-coding/k2p6",
+      "fallback_models": ["kimi-for-coding/k2p6"],
+      "variant": "medium"
+    },
+    "librarian": {
+      "model": "kimi-for-coding/k2p6",
+      "fallback_models": ["kimi-for-coding/k2p6"],
+      "variant": "medium"
+    }
+  },
+  "categories": {
+    "visual-engineering": {
+      "model": "kimi-for-coding/k2p6",
+      "variant": "medium",
+      "fallback_models": [
+        {
+          "model": "github-copilot/claude-opus-4.6",
+          "variant": "max"
+        },
+        {
+          "model": "kimi-for-coding/k2p6"
+        }
+      ]
+    },
+    "ultrabrain": {
+      "model": "kimi-for-coding/k2p6",
+      "variant": "xhigh",
+      "fallback_models": [
+        {
+          "model": "github-copilot/gemini-3.1-pro-preview",
+          "variant": "high"
+        },
+        {
+          "model": "github-copilot/claude-opus-4.6",
+          "variant": "max"
+        }
+      ]
+    },
+    "deep": {
+      "model": "opencode-go/kimi-k2.5",
+      "variant": "medium",
+      "fallback_models": [
+        {
+          "model": "github-copilot/gpt-5.4",
+          "variant": "medium"
+        },
+        {
+          "model": "github-copilot/claude-opus-4.6",
+          "variant": "max"
+        },
+        {
+          "model": "github-copilot/gemini-3.1-pro-preview",
+          "variant": "high"
+        }
+      ]
+    },
+    "artistry": {
+      "model": "github-copilot/gemini-3.1-pro-preview",
+      "variant": "high",
+      "fallback_models": [
+        {
+          "model": "github-copilot/claude-opus-4.6",
+          "variant": "max"
+        },
+        {
+          "model": "openai/gpt-5.4"
+        },
+        {
+          "model": "github-copilot/gpt-5.4"
+        }
+      ]
+    },
+    "quick": {
+      "model": "opencode-go/minimax-m2.5",
+      "fallback_models": [
+        {
+          "model": "github-copilot/gpt-5.4-mini"
+        },
+        {
+          "model": "github-copilot/claude-haiku-4.5"
+        },
+        {
+          "model": "github-copilot/gemini-3-flash-preview"
+        }
+      ]
+    },
+    "unspecified-low": {
+      "model": "opencode-go/minimax-m2.5",
+      "fallback_models": [
+        {
+          "model": "openai/gpt-5.3-codex",
+          "variant": "medium"
+        },
+        {
+          "model": "github-copilot/gemini-3-flash-preview"
+        }
+      ],
+      "variant": "medium"
+    },
+    "unspecified-high": {
+      "model": "opencode-go/kimi-k2.5",
+      "fallback_models": [
+        {
+          "model": "openai/gpt-5.3-codex",
+          "variant": "medium"
+        },
+        {
+          "model": "github-copilot/gemini-3-flash-preview"
+        }
+      ],
+      "variant": "medium"
+    },
+    "writing": {
+      "model": "opencode-go/minimax-m2.5",
+      "fallback_models": [
+        {
+          "model": "github-copilot/claude-sonnet-4.6"
+        }
+      ],
+      "variant": "medium"
+    }
+  },
+  "git_master": {
+    "commit_footer": false,
+    "include_co_authored_by": false,
+    "git_env_prefix": "GIT_MASTER=1"
+  },
+  "model_fallback": true,
+  "background_task": {
+    "providerConcurrency": {
+      "opencode-go": 4,
+      "kimi-for-coding": 2
+    },
+    "modelConcurrency": {
+      "opencode-go/kimi-k2.5": 3,
+      "opencode-go/minimax-m2.5": 4,
+      "kimi-for-coding/k2p6": 2
+    }
+  },
+  "experimental": {
+    "aggressive_truncation": true,
+    "task_system": true
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-openagent/dev/assets/oh-my-opencode.schema.json",
+  "model_fallback": true,
+  "agents": {
+    "sisyphus": {
+      "model": "kimi-for-coding/k2p5",
+      "fallback_models": ["kimi-for-coding/k2p5"],
+      "variant": "low",
+      "ultrawork": {
+        "model": "kimi-for-coding/k2p5",
+        "variant": "high"
+      }
+    },
+    "hephaestus": {
+      "model": "kimi-for-coding/k2p5",
+      "fallback_models": ["kimi-for-coding/k2p5"],
+      "variant": "medium"
+    },
+    "oracle": {
+      "model": "kimi-for-coding/k2p5",
+      "fallback_models": ["kimi-for-coding/k2p5"],
+      "variant": "high"
+    },
+    "explore": {
+      "model": "kimi-for-coding/k2p5",
+      "fallback_models": ["kimi-for-coding/k2p5"],
+      "variant": "low"
+    },
+    "librarian": {
+      "model": "kimi-for-coding/k2p5",
+      "fallback_models": ["kimi-for-coding/k2p5"],
+      "variant": "medium"
+    },
+    "multimodal-looker": {
+      "model": "kimi-for-coding/k2p5",
+      "fallback_models": ["kimi-for-coding/k2p5"],
+      "variant": "medium"
+    },
+    "prometheus": {
+      "model": "kimi-for-coding/k2p5",
+      "fallback_models": ["kimi-for-coding/k2p5"],
+      "variant": "high",
+      "prompt_append": "优先并行执行，充分利用 Hephaestus 的自主能力。"
+    },
+    "metis": {
+      "model": "kimi-for-coding/k2p5",
+      "fallback_models": ["kimi-for-coding/k2p5"],
+      "variant": "high"
+    },
+    "momus": {
+      "model": "kimi-for-coding/k2p5",
+      "fallback_models": ["kimi-for-coding/k2p5"],
+      "variant": "xhigh"
+    },
+    "atlas": {
+      "model": "kimi-for-coding/k2p5",
+      "fallback_models": ["kimi-for-coding/k2p5"],
+      "variant": "medium"
+    },
+    "sisyphus-junior": {
+      "model": "kimi-for-coding/k2p5",
+      "fallback_models": ["kimi-for-coding/k2p5"],
+      "variant": "medium"
+    }
+  },
+  "categories": {
+    "visual-engineering": {
+      "model": "kimi-for-coding/k2p5",
+      "variant": "medium"
+    },
+    "ultrabrain": {
+      "model": "kimi-for-coding/k2p5",
+      "variant": "xhigh"
+    },
+    "deep": {
+      "model": "opencode-go/kimi-k2.5",
+      "variant": "medium"
+    },
+    "quick": {
+      "model": "opencode-go/minimax-m2.5"
+    },
+    "unspecified-low": {
+      "model": "opencode-go/minimax-m2.5",
+      "variant": "medium"
+    },
+    "unspecified-high": {
+      "model": "opencode-go/kimi-k2.5",
+      "variant": "medium"
+    },
+    "writing": {
+      "model": "opencode-go/minimax-m2.5",
+      "variant": "medium"
+    }
+  },
+  "background_task": {
+    "providerConcurrency": {
+      "opencode-go": 4,
+      "kimi-for-coding": 2
+    },
+    "modelConcurrency": {
+      "opencode-go/kimi-k2.5": 3,
+      "opencode-go/minimax-m2.5": 4,
+      "kimi-for-coding/k2p5": 2
+    }
+  },
+  "experimental": {
+    "aggressive_truncation": true,
+    "disable_omo_env": true,
+    "task_system": true
+  },
+  "tmux": {
+    "enabled": false
+  }
+}
