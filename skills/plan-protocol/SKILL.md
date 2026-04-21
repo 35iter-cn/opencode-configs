@@ -31,33 +31,22 @@ Before writing or updating any plan, you **MUST**:
 
 For each task in your plan, ask:
 
-- [ ] Does this task involve running tests to verify behavior?
-- [ ] Does this task involve modifying code and then confirming correctness?
-- [ ] Does this task have a clear pass/fail criterion that should be demonstrated by an automated test or explicit verification step?
+- [ ] Does this task involve **writing or modifying business logic** (functions, algorithms, state management, data transformations) that requires a test to prove correctness?
+- [ ] Does this task involve **changing user-facing behavior** where a failing test must precede the fix to prevent regression?
+- [ ] Does this task have a clear pass/fail criterion that **cannot be verified by a static check** (lint, type-check, build) alone?
 
 **If ANY answer is YES** → Mark the task with `#implementation` and ensure its steps include `[RED]` and `[GREEN]` markers.
 
-**Common mistakes to avoid:**
-
-- ❌ "This is just config migration, not code — no TDD needed" — Configuration changes still have verification steps — e.g., asserting the app loads correctly with the new config — that fit RED/GREEN.
-- ❌ "I'll load TDD later if I need it" — Load it **before** planning. Judgment requires the skill.
-
 **When NOT to use `#implementation`:**
 
+- Configuration changes (package.json, build config, tool settings) — verify with commands, not tests.
+- Class name replacements, file moves, import path updates — verify with build/type-check.
 - Pure documentation updates (no behavior change to verify).
 - Administrative tasks (scheduling meetings, updating labels).
 - Research-only tasks that produce findings but don't modify production code or configuration.
 
-## `#implementation` Rules
+**Common mistakes to avoid:**
 
-Additional constraints apply only when `task.tag === "implementation"`:
-
-- The task must contain at least one numbered step ending with `[RED]`.
-- The task must contain at least one numbered step ending with `[GREEN]`.
-
-## Validation Result Semantics
-
-- Any plan that fails required checks is rejected and returned for correction.
-- Structural/schema violations -> `ok: false` (hard fail, plan is returned).
-- `#implementation` TDD violations (missing RED/GREEN, misplaced markers) -> `ok: false` (hard fail, plan is returned).
-- Multiple `[IN PROGRESS]` phases -> warning only (does not block submission).
+- ❌ "This is just config migration, not code — no TDD needed" — Correct: config migration does NOT need `#implementation`.
+- ❌ "I'll load TDD later if I need it" — Load it **before** planning. Judgment requires the skill.
+- ❌ "Every task that modifies code needs `#implementation`" — Only tasks that need RED/GREEN test cycles qualify.

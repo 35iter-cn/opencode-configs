@@ -84,9 +84,28 @@ Indented numbered steps under a task are parsed into `steps`:
 Rules:
 
 - Only digit-prefixed numbered lines (`1.`, `2.`, ...) are parsed as steps.
-- Step markers examples: `[RED]`, `[GREEN]`, `[REFACTOR]`.
+- Step markers are defined in Section 5.1.
 - Markers are valid only when they appear at the end of the line.
 - If a marker appears in any other position (start/middle), it is treated as a misplaced marker and causes validation failure.
+
+## 5.1 Step Markers
+
+Step markers are optional suffixes that indicate the intent of a step.
+
+| Marker     | Meaning                                                                                            | Exclusive to                 |
+| ---------- | -------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `[RED]`      | Execute a change that is expected to fail or produce an error (e.g., run tests before fixing code) | `#implementation` tasks only |
+| `[GREEN]`    | Execute a change that is expected to succeed or fix the previous `[RED]` step                        | `#implementation` tasks only |
+| `[REFACTOR]` | Clean up code without changing behavior, after `[GREEN]`                                             | `#implementation` tasks only |
+| `[VERIFY]`   | Confirm a state without making changes (e.g., check version, inspect output)                       | Any task                     |
+
+Rules:
+
+- A task with `#implementation` MUST have at least one `[RED]` and one `[GREEN]` step.
+- A task without `#implementation` MUST NOT use `[RED]`, `[GREEN]`, or `[REFACTOR]`.
+- Multiple `[RED]` or `[GREEN]` steps within the same task are allowed.
+- `[VERIFY]` may be used on any task to highlight a no-op confirmation step.
+- Markers must appear at the end of the step line. Misplaced markers cause validation failure.
 
 ## 6. Notes Section
 

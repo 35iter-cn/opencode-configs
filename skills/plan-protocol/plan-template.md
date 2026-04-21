@@ -23,6 +23,9 @@ Refresh login and auth UI in a controlled way: update key controls and copy whil
   4. Re-run the full or scoped suite; stay green before refactor. [GREEN]
   5. Without changing behavior, clarify targets for naming, duplication, and structure. [REFACTOR]
   6. Refactor with tests green; split risky cleanups into a follow-up task if needed. [REFACTOR]
+- [ ] 2.2 Update API base URL configuration
+  1. Edit `src/config/api.ts` to point to the new staging endpoint.
+  2. Run `pnpm dev` and verify the app loads without network errors. [VERIFY]
 
 ## Phase 3: Verify and close [PENDING]
 
