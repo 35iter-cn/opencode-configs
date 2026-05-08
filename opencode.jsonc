@@ -2,9 +2,8 @@
   "$schema": "https://opencode.ai/config.json",
   "permission": "allow",
   "plugin": [
-    "superpowers@git+https://github.com/obra/superpowers.git",
-    "oh-my-openagent@latest",
-    "@chime-io/plugin-opencode@latest"
+    "superpowers@file:/root/code/superpowers",
+    "@chime-io/plugin-opencode"
   ],
   "mcp": {}
 }
